@@ -1,10 +1,19 @@
+/**
+ * This Module contains the Filters use for getting the ECG baseline.
+ */
+
 class ErosionFilter {
     constructor(windowSize) {
         this.buffer = new Array(windowSize);
         this.buffer.fill(NaN);
         this.bufferIndex = 1;
     }
-
+    /**
+     * Push the data into the erosion filter and output the result
+     * Note: the result will be delayed, the time will change with the window size.
+     * @param {Number} inputValue Value push into Filter.
+     * @returns output of the Filter.
+     */
     pushData(inputValue) {
         var minValue;
         if (this.bufferIndex <= this.buffer.length) {
@@ -28,6 +37,12 @@ class DilationFilter {
         this.bufferIndex = 1;
     }
 
+    /**
+     * Push the data into the dilation filter and output the result
+     * Note: the result will be delayed, the time will change with the window size.
+     * @param {Number} inputValue Value push into Filter.
+     * @returns output of the Filter.
+     */
     pushData(inputValue) {
         var maxValue;
         if (this.bufferIndex <= this.buffer.length) {
@@ -50,6 +65,12 @@ class OpeningFilter {
         this.dilationFilter = new DilationFilter(windowSize);
     }
 
+    /**
+     * Push the data into the opening filter and output the result
+     * Note: the result will be delayed, the time will change with the window size.
+     * @param {Number} inputValue Value push into Filter.
+     * @returns output of the Filter.
+     */
     pushData(inputValue) {
         return this.dilationFilter.pushData(this.erosionFilter.pushData(inputValue));
     }
@@ -61,6 +82,12 @@ class ClosingFilter {
         this.dilationFilter = new DilationFilter(windowSize);
     }
 
+    /**
+     * Push the data into the closing filter and output the result
+     * Note: the result will be delayed, the time will change with the window size.
+     * @param {Number} inputValue Value push into Filter.
+     * @returns output of the Filter.
+     */
     pushData(inputValue) {
         return this.erosionFilter.pushData(this.dilationFilter.pushData(inputValue));
     }

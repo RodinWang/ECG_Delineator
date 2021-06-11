@@ -3,7 +3,7 @@ import React from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min';
 import '@fortawesome/fontawesome-free/css/all.min.css'
-import { bt_connect, bt_disconnected, bt_get_array } from './ble';
+import { btConnect, btDisconnected, btGetDataArray } from './ble';
 import ECGDiagram from './ECGDiagram'
 import { pushDataLowPassFilter14Hz, pushDatalowPassFilter40Hz } from './LowPassFilter';
 import { OpeningFilter, ClosingFilter } from './MorphologicalFilter';
@@ -51,7 +51,20 @@ var fileEcgdata = [];
 class App extends React.Component {
   timeID = 0;
   dataIndex = 0;
-  ersion_test;
+  ersion_test = null;
+
+  constructor(props) {
+    super(props);
+    this.openingFilter = new OpeningFilter(60);
+    this.closingFilter = new ClosingFilter(90);
+    this.state = {
+      ecgSignal: [],
+    };
+  }
+
+  componentDidMount() {
+    document.getElementById('files').addEventListener('change', this.handleFileSelect.bind(this), false);
+  }
 
   handleFileSelect(evt) {
 		var files = evt.target.files; // FileList object
@@ -87,7 +100,7 @@ class App extends React.Component {
 		  //console.log(this.dataIndex);
 			//drawEcgChart(fileEcgdata[0][this.dataIndex]);
       //ecgSignal.push(fileEcgdata[0][this.dataIndex]);
-      console.log(pushDatalowPassFilter40Hz(fileEcgdata[0][this.dataIndex]));
+      //console.log(pushDatalowPassFilter40Hz(fileEcgdata[0][this.dataIndex]));
       var temp = pushDatalowPassFilter40Hz(fileEcgdata[0][this.dataIndex]);
       ecgSignal.push(this.closingFilter.pushData(this.openingFilter.pushData(temp)));
 			this.dataIndex = this.dataIndex + 1;
@@ -111,19 +124,6 @@ class App extends React.Component {
 		link.download = fileName;
 		link.click();
 	}
-  
-  constructor(props) {
-    super(props);
-    this.openingFilter = new OpeningFilter(60);
-    this.closingFilter = new ClosingFilter(90);
-    this.state = {
-      ecgSignal: [],
-    };
-  }
-
-  componentDidMount() {
-    document.getElementById('files').addEventListener('change', this.handleFileSelect.bind(this), false);
-  }
 
   render() {
     const { ecgSignal } = this.state;
@@ -144,13 +144,13 @@ class App extends React.Component {
               </div>
               <div className="col-sm-3" />
               <div className="col-sm-2">
-                <button type="button" className="btn btn-primary btn-sm" onClick={() => bt_connect()}>
+                <button type="button" className="btn btn-primary btn-sm" onClick={() => btConnect()}>
                   <span className="fas fa-bolt fa-lg" style={{color: 'white'}} > </span>
                   {"  Search BLE"}
                 </button> 
               </div>
               <div className="col-sm-3">
-                <button type="button" className="btn btn-danger btn-sm" onClick={() => bt_disconnected()}>
+                <button type="button" className="btn btn-danger btn-sm" onClick={() => btDisconnected()}>
                   <span className="fas fa-unlink fa-md" style={{color: 'white'}} > </span>
                   {"  Disconnect BLE"}
                 </button> 
