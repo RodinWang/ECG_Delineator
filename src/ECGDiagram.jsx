@@ -1,6 +1,6 @@
 import React from "react";
 
-const ECG_COLOR = "#23F427FF";
+const ECG_COLOR = "#0000FF";
 const SECOND_DIFF_DELAY = 3;
 
 class ECGDiagram extends React.Component{
@@ -67,11 +67,54 @@ class ECGDiagram extends React.Component{
         const ctx2 = c2.getContext("2d");
         
         var originFillStyle = ctx2.fillStyle;
-
         var x_value = (this.drawPointsIndex-1-SECOND_DIFF_DELAY) * (c2.width / (this.sampleFreq * this.frameLength));
         ctx2.fillStyle = "rgb(200,0,0)";
         ctx2.beginPath();
         ctx2.arc(x_value.toFixed(2) , this.data[this.drawPointsIndex-SECOND_DIFF_DELAY], 4, 0, Math.PI*2, true);
+        ctx2.fill();
+        ctx2.closePath();
+
+        ctx2.fillStyle = originFillStyle;
+    }
+
+    drawPeakP() {
+        const c2 = this.canvasRef2.current;
+        const ctx2 = c2.getContext("2d");
+        
+        var originFillStyle = ctx2.fillStyle;
+        var PRInterval = (this.props.data.Peak.PeakR - this.props.data.Peak.PeakP + (this.sampleFreq*2)) % (this.sampleFreq*2);
+        
+        var x_index;
+        var x_value;
+
+        x_index = ((this.drawPointsIndex - 1 - SECOND_DIFF_DELAY - PRInterval + (this.sampleFreq * this.frameLength)) % (this.sampleFreq * this.frameLength));
+        x_value = x_index * (c2.width / (this.sampleFreq * this.frameLength));
+
+        ctx2.fillStyle = "#009900";
+        ctx2.beginPath();
+        ctx2.arc(x_value.toFixed(2) , this.data[x_index], 4, 0, Math.PI*2, true);
+        ctx2.fill();
+        ctx2.closePath();
+
+        ctx2.fillStyle = originFillStyle;
+    }
+
+    drawPeakT() {
+        const c2 = this.canvasRef2.current;
+        const ctx2 = c2.getContext("2d");
+        
+        var originFillStyle = ctx2.fillStyle;
+        var TRInterval = (this.props.data.Peak.PeakR - this.props.data.Peak.PeakT + (this.sampleFreq*2)) % (this.sampleFreq*2);
+
+        var x_index;
+        var x_value;
+
+        x_index = ((this.drawPointsIndex - 1 - SECOND_DIFF_DELAY - TRInterval + (this.sampleFreq * this.frameLength)) % (this.sampleFreq * this.frameLength));
+        x_value = x_index * (c2.width / (this.sampleFreq * this.frameLength));
+
+        ctx2.fillStyle = "#FF00FF";
+        ctx2.beginPath();
+        ctx2.arc(x_value.toFixed(2) , this.data[x_index], 4, 0, Math.PI*2, true);
         ctx2.fill();
         ctx2.closePath();
 
@@ -118,8 +161,14 @@ class ECGDiagram extends React.Component{
         if (this.props.data !== prevProps.data) {
             this.updateChart();
         }
-        if (this.props.data.PeakR.PeakR !== prevProps.data.PeakR.PeakR) {
+        if (this.props.data.Peak.PeakR !== prevProps.data.Peak.PeakR) {
             this.drawPeakR();
+        }
+        if (this.props.data.Peak.PeakP !== prevProps.data.Peak.PeakP) {
+            this.drawPeakP();
+        }
+        if (this.props.data.Peak.PeakT !== prevProps.data.Peak.PeakT) {
+            this.drawPeakT();
         }
     } 
 

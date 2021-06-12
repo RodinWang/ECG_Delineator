@@ -15,7 +15,7 @@ var firCalculator= new Fili.FirCoeffs();
 var lowPassFir14Coeffs = firCalculator.lowpass({
     order: filterOrder,
     Fs: samplingFreq,
-    Fc: 12
+    Fc: 14
 })
 var lowPassFir40Coeffs = firCalculator.lowpass({
     order: filterOrder,

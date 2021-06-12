@@ -50,14 +50,15 @@ var fileEcgdata = [];
 class App extends React.Component {
   timeID = 0;
   dataIndex = 0;
-  object_test = null;
+  ecgDelineator = undefined;
 
   constructor(props) {
     super(props);
-    this.object_test = new EcgDelineator();
     this.state = {
       ecgSignal: [],
       peakR: [],
+      peakP: [],
+      peakT: [],
       pPeakEnable: false,
       rPeakEnable: true,
       tPeakEnable: false,
@@ -82,8 +83,7 @@ class App extends React.Component {
 				return (e) => {
 					let filedata = e.target.result;
 					fileEcgdata = CSVToNumberArray(filedata, ',').slice();
-					//console.log(fileEcgdata);
-					//console.log(fileEcgdata[0][0]);
+          this.ecgDelineator = new EcgDelineator();
           // set timer for 500Hz
           this.timerId = setInterval(this.handleEcgDraw.bind(this), 2);
 				};
@@ -94,19 +94,29 @@ class App extends React.Component {
   }
 
   handleEcgDraw() {
-    const { ecgSignal, PeakR } = this.state;
+    const { ecgSignal, PeakR, PeakP, PeakT } = this.state;
 
 		if (this.dataIndex >= 9999) {
 			clearInterval(this.timerId);
       this.dataIndex = 0;
 		}
 		else {
-      this.object_test.pushEcgData(fileEcgdata[0][this.dataIndex]);
-      var ecg = this.object_test.getEcg40HzData();
+      this.ecgDelineator.pushEcgData(fileEcgdata[0][this.dataIndex]);
+      var ecg = this.ecgDelineator.getEcg40HzData();
 
-      var posPeakR = PeakR ;
-      if (this.object_test.isPeakRDetected() === true) {
-        posPeakR = this.object_test.getPosPeakR();
+      var posPeakR = PeakR;
+      var posPeakP = PeakP;
+      var posPeakT = PeakT;
+      if (this.ecgDelineator.isPeakRDetected() === true) {
+        posPeakR = this.ecgDelineator.getPosPeakR();
+
+        if (this.ecgDelineator.isPeakPDetected() === true) {
+          posPeakP = this.ecgDelineator.getPosPeakP();
+        }
+
+        if (this.ecgDelineator.isPeakTDetected() === true) {
+          posPeakT = this.ecgDelineator.getPosPeakT();
+        }
       }
 
       ecgSignal.push(ecg);
@@ -114,9 +124,25 @@ class App extends React.Component {
       this.setState({
         ecgSignal: ecgSignal.slice(),
         PeakR: posPeakR,
+        PeakP: posPeakP,
+        PeakT: posPeakT,
       });
 		}
 	}
+
+
+  handleBTConnect() {
+    if (this.ecgDelineator !== undefined) {
+      delete this.ecgDelineator;
+    }
+    this.ecgDelineator = new EcgDelineator();
+    btConnect();
+  }
+
+  handleBTDisconnect() {
+    delete this.ecgDelineator;
+    btDisconnected();
+  }
 
   // Save ECG Data
   saveRawEcgData() {
@@ -188,13 +214,15 @@ class App extends React.Component {
   }
 
   render() {
-    const { ecgSignal, PeakR, pPeakEnable, rPeakEnable, tPeakEnable, pOnEndEnable, rOnEndEnable, tOnEndEnable } = this.state;
+    const { ecgSignal, PeakR, PeakP, PeakT, pPeakEnable, rPeakEnable, tPeakEnable, pOnEndEnable, rOnEndEnable, tOnEndEnable } = this.state;
     let data = {
       ECG: {
         ecgSignal
       },
-      PeakR: {
-        PeakR
+      Peak: {
+        PeakR,
+        PeakP,
+        PeakT,
       }
     }
 
@@ -214,13 +242,13 @@ class App extends React.Component {
               </div>
               <div className="col-sm-3" />
               <div className="col-sm-2">
-                <button type="button" className="btn btn-primary btn-sm" onClick={() => btConnect()}>
+                <button type="button" className="btn btn-primary btn-sm" onClick={this.handleBTConnect.bind(this)}>
                   <span className="fas fa-bolt fa-lg" style={{color: 'white'}} > </span>
                   {"  Search BLE"}
                 </button> 
               </div>
               <div className="col-sm-3">
-                <button type="button" className="btn btn-danger btn-sm" onClick={() => btDisconnected()}>
+                <button type="button" className="btn btn-danger btn-sm" onClick={this.handleBTDisconnect.bind(this)}>
                   <span className="fas fa-unlink fa-md" style={{color: 'white'}} > </span>
                   {"  Disconnect BLE"}
                 </button> 
