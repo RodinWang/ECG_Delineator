@@ -1,11 +1,12 @@
 import React from "react";
 
 const ECG_COLOR = "#23F427FF";
+const SECOND_DIFF_DELAY = 3;
 
 class ECGDiagram extends React.Component{
 
     sampleFreq = 500; // Hz
-	frameLength = 5; // Sec
+	frameLength = 4; // Sec
 	drawPointsUnit = 40; //points
 	data = Array(this.sampleFreq*this.frameLength);
 	drawPointsIndex = 0;
@@ -61,35 +62,46 @@ class ECGDiagram extends React.Component{
 		}
 	}
 
+    drawPeakR() {
+        const c2 = this.canvasRef2.current;
+        const ctx2 = c2.getContext("2d");
+        
+        var originFillStyle = ctx2.fillStyle;
+
+        var x_value = (this.drawPointsIndex-1-SECOND_DIFF_DELAY) * (c2.width / (this.sampleFreq * this.frameLength));
+        ctx2.fillStyle = "rgb(200,0,0)";
+        ctx2.beginPath();
+        ctx2.arc(x_value.toFixed(2) , this.data[this.drawPointsIndex-SECOND_DIFF_DELAY], 4, 0, Math.PI*2, true);
+        ctx2.fill();
+        ctx2.closePath();
+
+        ctx2.fillStyle = originFillStyle;
+    }
 
     updateChart() {
         const c2 = this.canvasRef2.current;
         const ctx2 = c2.getContext("2d");
         var x_value1, x_value2;
         var clearWidth = this.drawPointsUnit * (c2.width / (this.sampleFreq * this.frameLength)); 
-        var input_value = this.props.data[this.props.data.length-1];
+        var input_value = this.props.data.ECG.ecgSignal[this.props.data.ECG.ecgSignal.length-1];
 		this.data[this.drawPointsIndex] = this.signalReverse(input_value);
         
-        if (this.drawPointsIndex === 0) {
-            
+        ctx2.beginPath();
+        if (this.drawPointsIndex === 0) {            
             x_value2 = this.drawPointsIndex * (c2.width / (this.sampleFreq * this.frameLength));
-            ctx2.beginPath();
             ctx2.clearRect(0, 0, clearWidth, c2.height);
-            ctx2.moveTo( 0, this.data[this.drawPointsIndex]);
-            ctx2.lineTo( x_value2.toFixed(2) , this.data[this.drawPointsIndex]);
-            ctx2.stroke(); 
-            ctx2.closePath();
+            ctx2.moveTo( 0, this.data[0]);
+            ctx2.lineTo( x_value2.toFixed(2) , this.data[0]);
         }
         else {
             x_value1 = (this.drawPointsIndex - 1)* (c2.width / (this.sampleFreq * this.frameLength));
 		    x_value2 = this.drawPointsIndex * (c2.width / (this.sampleFreq * this.frameLength));
-            ctx2.beginPath();
             ctx2.clearRect( x_value2 + clearWidth, 0, 1, c2.height);
             ctx2.moveTo( x_value1, this.data[this.drawPointsIndex-1]);
             ctx2.lineTo( x_value2.toFixed(2) , this.data[this.drawPointsIndex]);
-            ctx2.stroke(); 
-            ctx2.closePath();
         }
+        ctx2.stroke(); 
+        ctx2.closePath();
         
 		this.drawPointsIndex++;
 
@@ -103,9 +115,11 @@ class ECGDiagram extends React.Component{
 
     componentDidUpdate(prevProps) {
         // if props updated
-        if(this.props.data !== prevProps.data)
-        {
+        if (this.props.data !== prevProps.data) {
             this.updateChart();
+        }
+        if (this.props.data.PeakR.PeakR !== prevProps.data.PeakR.PeakR) {
+            this.drawPeakR();
         }
     } 
 

@@ -5,8 +5,7 @@ import 'bootstrap/dist/js/bootstrap.bundle.min';
 import '@fortawesome/fontawesome-free/css/all.min.css'
 import { btConnect, btDisconnected, btGetDataArray } from './ble';
 import ECGDiagram from './ECGDiagram'
-import { pushDataLowPassFilter14Hz, pushDatalowPassFilter40Hz } from './LowPassFilter';
-import { OpeningFilter, ClosingFilter } from './MorphologicalFilter';
+import { EcgDelineator } from './EcgDelineator'
 
 // convert CSV to number array
 function CSVToNumberArray( strData, strDelimiter ) {
@@ -51,14 +50,20 @@ var fileEcgdata = [];
 class App extends React.Component {
   timeID = 0;
   dataIndex = 0;
-  ersion_test = null;
+  object_test = null;
 
   constructor(props) {
     super(props);
-    this.openingFilter = new OpeningFilter(60);
-    this.closingFilter = new ClosingFilter(90);
+    this.object_test = new EcgDelineator();
     this.state = {
       ecgSignal: [],
+      peakR: [],
+      pPeakEnable: false,
+      rPeakEnable: true,
+      tPeakEnable: false,
+      pOnEndEnable: false,
+      rOnEndEnable: false,
+      tOnEndEnable: false,
     };
   }
 
@@ -88,30 +93,33 @@ class App extends React.Component {
 		}
   }
 
-  handleEcgDraw(){
-    const { ecgSignal } = this.state;
+  handleEcgDraw() {
+    const { ecgSignal, PeakR } = this.state;
 
-		if (this.dataIndex > 9999) {
+		if (this.dataIndex >= 9999) {
 			clearInterval(this.timerId);
       this.dataIndex = 0;
 		}
 		else {
-      //console.log(fileEcgdata[0][this.dataIndex]);
-		  //console.log(this.dataIndex);
-			//drawEcgChart(fileEcgdata[0][this.dataIndex]);
-      //ecgSignal.push(fileEcgdata[0][this.dataIndex]);
-      //console.log(pushDatalowPassFilter40Hz(fileEcgdata[0][this.dataIndex]));
-      var temp = pushDatalowPassFilter40Hz(fileEcgdata[0][this.dataIndex]);
-      ecgSignal.push(this.closingFilter.pushData(this.openingFilter.pushData(temp)));
-			this.dataIndex = this.dataIndex + 1;
+      this.object_test.pushEcgData(fileEcgdata[0][this.dataIndex]);
+      var ecg = this.object_test.getEcg40HzData();
 
-      this.setState({ecgSignal: ecgSignal.slice()});
+      var posPeakR = PeakR ;
+      if (this.object_test.isPeakRDetected() === true) {
+        posPeakR = this.object_test.getPosPeakR();
+      }
+
+      ecgSignal.push(ecg);
+			this.dataIndex = this.dataIndex + 1;
+      this.setState({
+        ecgSignal: ecgSignal.slice(),
+        PeakR: posPeakR,
+      });
 		}
 	}
 
   // Save ECG Data
-  saveRawEcgData()
-	{
+  saveRawEcgData() {
 		var fileName = "ecg_data.csv";//匯出的檔名
 		var data = this.state.ecgSignal;
 		var blob = new Blob([data], {
@@ -125,8 +133,70 @@ class App extends React.Component {
 		link.click();
 	}
 
+  handlePOnPeakCheck() {
+    let { pPeakEnable } = this.state;
+    pPeakEnable = !pPeakEnable;
+
+    this.setState({
+      pPeakEnable: pPeakEnable,
+    });
+  }
+
+  handleROnPeakCheck() {
+    let { rPeakEnable } = this.state;
+    rPeakEnable = !rPeakEnable;
+
+    this.setState({
+      rPeakEnable: rPeakEnable,
+    });
+  }
+
+  handleTOnPeakCheck() {
+    let { tPeakEnable } = this.state;
+    tPeakEnable = !tPeakEnable;
+
+    this.setState({
+      tPeakEnable: tPeakEnable,
+    });
+  }
+
+  handlePOnEndCheck(e) {
+    let { pOnEndEnable } = this.state;
+    pOnEndEnable = !pOnEndEnable;
+
+    this.setState({
+      pOnEndEnable: pOnEndEnable,
+    });
+  }
+
+  handleROnEndCheck(e) {
+    let { rOnEndEnable } = this.state;
+    rOnEndEnable = !rOnEndEnable;
+
+    this.setState({
+      rOnEndEnable: rOnEndEnable,
+    });
+  }
+
+  handleTOnEndCheck(e) {
+    let { tOnEndEnable } = this.state;
+    tOnEndEnable = !tOnEndEnable;
+
+    this.setState({
+      tOnEndEnable: tOnEndEnable,
+    });
+  }
+
   render() {
-    const { ecgSignal } = this.state;
+    const { ecgSignal, PeakR, pPeakEnable, rPeakEnable, tPeakEnable, pOnEndEnable, rOnEndEnable, tOnEndEnable } = this.state;
+    let data = {
+      ECG: {
+        ecgSignal
+      },
+      PeakR: {
+        PeakR
+      }
+    }
 
     return (
       <div className="App">        
@@ -176,7 +246,7 @@ class App extends React.Component {
                       <div className="row">
                         <div className="col-sm-4">
                           <div className="form-check">
-                            <input className="form-check-input" type="checkbox" value="p" id="checkbox-peak-p" />
+                            <input className="form-check-input" type="checkbox" value="p" id="checkbox-peak-p" checked={pPeakEnable} onChange={this.handlePOnPeakCheck.bind(this)}/>
                             <label className="form-check-label h5" htmlFor="checkbox-peak-p">
                               P Peak
                             </label>
@@ -184,7 +254,7 @@ class App extends React.Component {
                         </div>
                         <div className="col-sm-4">
                           <div className="form-check">
-                            <input className="form-check-input" type="checkbox" value="r" id="checkbox-peak-r" />
+                            <input className="form-check-input" type="checkbox" value="r" id="checkbox-peak-r" checked={rPeakEnable} onChange={this.handleROnPeakCheck.bind(this)} />
                             <label className="form-check-label h5" htmlFor="checkbox-peak-r">
                               QRS Complex
                             </label>
@@ -192,7 +262,7 @@ class App extends React.Component {
                         </div>
                         <div className="col-sm-4">
                           <div className="form-check">
-                            <input className="form-check-input" type="checkbox" value="t" id="checkbox-peak-t" />
+                            <input className="form-check-input" type="checkbox" value="t" id="checkbox-peak-t" checked={tPeakEnable} onChange={this.handleTOnPeakCheck.bind(this)} />
                             <label className="form-check-label h5" htmlFor="checkbox-peak-t">
                               T Peak
                             </label>
@@ -213,7 +283,7 @@ class App extends React.Component {
                     <div className="row">
                       <div className="col-sm-4">
                         <div className="form-check">
-                          <input className="form-check-input" type="checkbox" value="p" id="checkbox-end-p" />
+                          <input className="form-check-input" type="checkbox" value="p" id="checkbox-end-p" checked={pOnEndEnable} onChange={this.handlePOnEndCheck.bind(this)} />
                           <label className="form-check-label h5" htmlFor="checkbox-end-p">
                             P On-End
                           </label>
@@ -221,7 +291,7 @@ class App extends React.Component {
                       </div>
                       <div className="col-sm-4">
                         <div className="form-check">
-                          <input className="form-check-input" type="checkbox" value="r" id="checkbox-end-r" />
+                          <input className="form-check-input" type="checkbox" value="r" id="checkbox-end-r" checked={rOnEndEnable} onChange={this.handleROnEndCheck.bind(this)} />
                           <label className="form-check-label h5" htmlFor="checkbox-end-r">
                             QRS 
                             <br />
@@ -231,7 +301,7 @@ class App extends React.Component {
                       </div>
                       <div className="col-sm-4">
                         <div className="form-check">
-                          <input className="form-check-input" type="checkbox" value="t" id="checkbox-end-t" />
+                          <input className="form-check-input" type="checkbox" value="t" id="checkbox-end-t" checked={tOnEndEnable} onChange={this.handleTOnEndCheck.bind(this)} />
                           <label className="form-check-label h5" htmlFor="checkbox-end-t">
                             T On-End
                           </label>
@@ -260,7 +330,7 @@ class App extends React.Component {
             {/* ECG Diagram */}
             <div className="row">
               <div className="col-md-12 gy-3">
-                <ECGDiagram data={ecgSignal}/>
+                <ECGDiagram data={data}/>
               </div>
             </div>
           </div>

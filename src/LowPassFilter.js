@@ -5,7 +5,7 @@
 var Fili = require('fili/dist/fili.min');
 
 var samplingFreq = 500;
-var filterOrder = 40;
+var filterOrder = 50;
 
 
 /* Low Pass Filter */
@@ -15,7 +15,7 @@ var firCalculator= new Fili.FirCoeffs();
 var lowPassFir14Coeffs = firCalculator.lowpass({
     order: filterOrder,
     Fs: samplingFreq,
-    Fc: 14
+    Fc: 12
 })
 var lowPassFir40Coeffs = firCalculator.lowpass({
     order: filterOrder,
@@ -43,8 +43,8 @@ function pushDataLowPassFilter14Hz(inputValue) {
  * @param {Number} inputValue Filter input value
  * @returns {Number} result of 40Hz Low Pass Filter
  */
-function pushDatalowPassFilter40Hz(inputValue) {
+function pushDataLowPassFilter40Hz(inputValue) {
     return lowPassFirFilter40.singleStep(inputValue);
 }
 
-export { pushDataLowPassFilter14Hz, pushDatalowPassFilter40Hz };
+export { pushDataLowPassFilter14Hz, pushDataLowPassFilter40Hz };
