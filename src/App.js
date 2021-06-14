@@ -56,9 +56,13 @@ class App extends React.Component {
     super(props);
     this.state = {
       ecgSignal: [],
+      baseLine: [],
       peakR: [],
       peakP: [],
       peakT: [],
+      onEndR: [],
+      onEndP: [],
+      onEndT: [],
       pPeakEnable: false,
       rPeakEnable: true,
       tPeakEnable: false,
@@ -94,7 +98,7 @@ class App extends React.Component {
   }
 
   handleEcgDraw() {
-    const { ecgSignal, PeakR, PeakP, PeakT } = this.state;
+    const { ecgSignal, baseLine, PeakR, PeakP, PeakT, onEndR, onEndP, onEndT, pPeakEnable, rPeakEnable, tPeakEnable, pOnEndEnable, rOnEndEnable, tOnEndEnable } = this.state;
 
 		if (this.dataIndex >= 9999) {
 			clearInterval(this.timerId);
@@ -107,25 +111,48 @@ class App extends React.Component {
       var posPeakR = PeakR;
       var posPeakP = PeakP;
       var posPeakT = PeakT;
-      if (this.ecgDelineator.isPeakRDetected() === true) {
-        posPeakR = this.ecgDelineator.getPosPeakR();
+      var posOnEndR = onEndR;
+      var posOnEndP = onEndP;
+      var posOnEndT = onEndT;
+      if (this.ecgDelineator.isPeakRDetected()) {
+        if (rPeakEnable)
+          posPeakR = this.ecgDelineator.getPosPeakR();
 
-        if (this.ecgDelineator.isPeakPDetected() === true) {
-          posPeakP = this.ecgDelineator.getPosPeakP();
+        if (this.ecgDelineator.isPeakPDetected()) {
+          if (pPeakEnable)
+            posPeakP = this.ecgDelineator.getPosPeakP();
         }
 
-        if (this.ecgDelineator.isPeakTDetected() === true) {
-          posPeakT = this.ecgDelineator.getPosPeakT();
+        if (this.ecgDelineator.isPeakTDetected()) {
+          if (tPeakEnable)
+            posPeakT = this.ecgDelineator.getPosPeakT();
         }
       }
 
+      if (this.ecgDelineator.isOnEndTDetected()) {
+        if (tOnEndEnable)
+          posOnEndT = this.ecgDelineator.getPosOnEndT();
+      }
+
+      if (this.ecgDelineator.isOnEndPDetected()) {
+        if (pOnEndEnable)
+          posOnEndP = this.ecgDelineator.getPosOnEndP();
+      }
+
+      
+
       ecgSignal.push(ecg);
+      baseLine.push(this.ecgDelineator.getBaseline());
 			this.dataIndex = this.dataIndex + 1;
       this.setState({
         ecgSignal: ecgSignal.slice(),
+        baseLine: baseLine.slice(),
         PeakR: posPeakR,
         PeakP: posPeakP,
         PeakT: posPeakT,
+        onEndR: posOnEndR,
+        onEndP: posOnEndP,
+        onEndT: posOnEndT,
       });
 		}
 	}
@@ -160,61 +187,110 @@ class App extends React.Component {
 	}
 
   handlePOnPeakCheck() {
-    let { pPeakEnable } = this.state;
+    let { pPeakEnable, rPeakEnable, pOnEndEnable } = this.state;
     pPeakEnable = !pPeakEnable;
+
+    if (pPeakEnable) {
+      rPeakEnable = true;
+    }
+    if (!pPeakEnable) {
+      pOnEndEnable = false;
+    }
 
     this.setState({
       pPeakEnable: pPeakEnable,
+      rPeakEnable: rPeakEnable,
+      pOnEndEnable: pOnEndEnable,
     });
   }
 
   handleROnPeakCheck() {
-    let { rPeakEnable } = this.state;
+    let { pPeakEnable, rPeakEnable, tPeakEnable, pOnEndEnable, rOnEndEnable, tOnEndEnable } = this.state;
     rPeakEnable = !rPeakEnable;
 
+    if (!rPeakEnable) {
+      pPeakEnable = false;
+      tPeakEnable = false;
+      pOnEndEnable = false;
+      rOnEndEnable = false;
+      tOnEndEnable = false;
+    }
+
     this.setState({
+      pPeakEnable: pPeakEnable,
       rPeakEnable: rPeakEnable,
+      tPeakEnable: tPeakEnable,
+      pOnEndEnable: pOnEndEnable,
+      rOnEndEnable: rOnEndEnable,
+      tOnEndEnable: tOnEndEnable, 
     });
   }
 
   handleTOnPeakCheck() {
-    let { tPeakEnable } = this.state;
+    let { tPeakEnable, rPeakEnable, tOnEndEnable } = this.state;
     tPeakEnable = !tPeakEnable;
+
+    if (tPeakEnable) {
+      rPeakEnable = true;
+    }
+    if (!tPeakEnable) {
+      tOnEndEnable = false;
+    }
 
     this.setState({
       tPeakEnable: tPeakEnable,
+      rPeakEnable: rPeakEnable,
+      tOnEndEnable: tOnEndEnable,
     });
   }
 
   handlePOnEndCheck(e) {
-    let { pOnEndEnable } = this.state;
+    let { pPeakEnable, rPeakEnable, pOnEndEnable } = this.state;
     pOnEndEnable = !pOnEndEnable;
 
+    if (pOnEndEnable) {
+      rPeakEnable = true;
+      pPeakEnable = true;
+    }
+
     this.setState({
+      pPeakEnable: pPeakEnable,
+      rPeakEnable: rPeakEnable,
       pOnEndEnable: pOnEndEnable,
     });
   }
 
   handleROnEndCheck(e) {
-    let { rOnEndEnable } = this.state;
+    let { rPeakEnable, rOnEndEnable } = this.state;
     rOnEndEnable = !rOnEndEnable;
+
+    if (rOnEndEnable)
+      rPeakEnable = true;
 
     this.setState({
       rOnEndEnable: rOnEndEnable,
+      rPeakEnable: rPeakEnable,
     });
   }
 
   handleTOnEndCheck(e) {
-    let { tOnEndEnable } = this.state;
+    let { tPeakEnable, rPeakEnable, tOnEndEnable } = this.state;
     tOnEndEnable = !tOnEndEnable;
 
+    if (tOnEndEnable) {
+      rPeakEnable = true;
+      tPeakEnable = true;
+    }
+
     this.setState({
+      tPeakEnable: tPeakEnable,
+      rPeakEnable: rPeakEnable,
       tOnEndEnable: tOnEndEnable,
     });
   }
 
   render() {
-    const { ecgSignal, PeakR, PeakP, PeakT, pPeakEnable, rPeakEnable, tPeakEnable, pOnEndEnable, rOnEndEnable, tOnEndEnable } = this.state;
+    let { ecgSignal, baseLine, PeakR, PeakP, PeakT, onEndR, onEndP, onEndT, pPeakEnable, rPeakEnable, tPeakEnable, pOnEndEnable, rOnEndEnable, tOnEndEnable } = this.state;
     let data = {
       ECG: {
         ecgSignal
@@ -223,6 +299,27 @@ class App extends React.Component {
         PeakR,
         PeakP,
         PeakT,
+      },
+      onEnd: {
+        onEndR,
+        onEndP,
+        onEndT
+      }
+    }
+    ecgSignal = baseLine;
+    let data1 = {
+      ECG: {
+        ecgSignal
+      },
+      Peak: {
+        PeakR,
+        PeakP,
+        PeakT,
+      },
+      onEnd: {
+        onEndR,
+        onEndP,
+        onEndT
       }
     }
 
@@ -230,11 +327,7 @@ class App extends React.Component {
       <div className="App">        
         <header className="App-header">
           <div className="container-fluid App-font">
-          {/* <button type="button" className="btn btn-primary btn-sm" onClick={() => {
-            let rand = Math.floor(Math.random()*10);
-            console.log(rand)
-            console.log(this.ersion_test.pushData(rand));
-          }} /> */}
+                      
             {/* Button */}
             <div className="row">
               <div className="col-sm-1">
@@ -359,6 +452,11 @@ class App extends React.Component {
             <div className="row">
               <div className="col-md-12 gy-3">
                 <ECGDiagram data={data}/>
+              </div>
+            </div>
+            <div className="row">
+              <div className="col-md-12 gy-3">
+                <ECGDiagram data={data1}/>
               </div>
             </div>
           </div>

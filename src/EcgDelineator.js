@@ -1,18 +1,44 @@
 
 import { pushDataLowPassFilter14Hz, pushDataLowPassFilter40Hz } from './LowPassFilter';
 import { FirstDerivativeFilter, SecondDerivativeFilter } from './DifferentialFilter';
+import { OpeningFilter, ClosingFilter } from './MorphologicalFilter';
 
-var samplingFreq = 500;
-var windowLength = 2
-var windowBufferSize = samplingFreq * windowLength;
-var QRSFactor = 0.45;
-var PFactor = 0.005;
-var TFactor = 0.005;
-var PSearchWindow = [0.1 * samplingFreq, 0.2 * samplingFreq];
-var TSearchWindow = [0.2 * samplingFreq, 0.4 * samplingFreq];
+
+const samplingFreq = 500;
+const windowLength = 2
+const windowBufferSize = samplingFreq * windowLength;
+const QRSFactor = 0.45;
+const PFactor = 0.01;
+const TFactor = 0.01;
+const PSearchWindow = [0.1 * samplingFreq, 0.2 * samplingFreq];
+const TSearchWindow = [0.2 * samplingFreq, 0.4 * samplingFreq];
+const ECGBaseOpeningFilterSize = 0.2 * samplingFreq;
+const ECGBaseClosingFilterSize = ECGBaseOpeningFilterSize *  1.5;
+const PBaseFilterSize = 0.12 * samplingFreq;
+const TBaseFilterSize = 0.2 * samplingFreq;
+const ECGBaseDelay = (ECGBaseOpeningFilterSize + ECGBaseClosingFilterSize);
+const PBaseDelay = (PBaseFilterSize);
+const TBaseDelay = (TBaseFilterSize);
+const SSearchWindow = 0.1 * samplingFreq;
 
 function SumOfArray(arr){
     return arr.reduce((a,b)=>a+b);  
+}
+
+function indexOfAbsMax(arr) {
+    if (arr.length === 0)
+        return -1;
+
+    var max = Math.abs(arr[0]);
+    var maxIndex = 0;
+    for (var i = 1; i < arr.length; i++) {
+        if (Math.abs(arr[i]) > max) {
+            maxIndex = i;
+            max = Math.abs(arr[i]);
+        }
+    }
+
+    return maxIndex;
 }
 
 class EcgDelineator {
@@ -26,9 +52,15 @@ class EcgDelineator {
         // Delay 1 Buffer frame
         this.startupDelay = 0;
 
+        this.onEndDetection = 0;
+
         // filter
         this.firstDiffFilter = new FirstDerivativeFilter();
         this.secondDiffFilter = new SecondDerivativeFilter();
+        this.ecgBaseOpeningFilter = new OpeningFilter(ECGBaseOpeningFilterSize);
+        this.ecgBaseClosingFilter = new ClosingFilter(ECGBaseClosingFilterSize);
+        this.pBaseOpeningFilter = new OpeningFilter(PBaseFilterSize);
+        this.tBaseOpeningFilter = new OpeningFilter(TBaseFilterSize);
 
         // buffer
         this.ecgBufferIndex = 0;
@@ -36,6 +68,9 @@ class EcgDelineator {
         this.ecg40HzBuffer = new Array(windowBufferSize).fill(0);
         this.firstDiffBuffer = new Array(windowBufferSize).fill(0);
         this.secondDiffBuffer = new Array(windowBufferSize).fill(0);
+        this.ecgBaseBuffer = new Array(windowBufferSize).fill(0);
+        this.pBaseBuffer = new Array(windowBufferSize).fill(0);
+        this.tBaseBuffer = new Array(windowBufferSize).fill(0);
 
         //  result
         this.prevPosPeakR = 0;
@@ -45,7 +80,12 @@ class EcgDelineator {
         this.detectionPeakP = false;
         this.posPeakT = 0;
         this.detectionPeakT = false;
-
+        this.posOnEndR = [0, 0];
+        this.detectionOnEndR = false;
+        this.posOnEndP = [0, 0];
+        this.detectionOnEndP = false;
+        this.posOnEndT = [0, 0];
+        this.detectionOnEndT = false;
     }
 
     pushEcgData(inputEcg) {
@@ -55,6 +95,9 @@ class EcgDelineator {
         this.ecg40HzBuffer[this.ecgBufferIndex] = ecg40Hz;
         this.firstDiffBuffer[this.ecgBufferIndex] = this.firstDiffFilter.pushData(ecg14Hz);
         this.secondDiffBuffer[this.ecgBufferIndex] = this.secondDiffFilter.pushData(ecg14Hz);
+        this.ecgBaseBuffer[this.ecgBufferIndex] = this.ecgBaseClosingFilter.pushData(this.ecgBaseOpeningFilter.pushData(ecg40Hz));
+        this.pBaseBuffer[this.ecgBufferIndex] = this.pBaseOpeningFilter.pushData(ecg40Hz);
+        this.tBaseBuffer[this.ecgBufferIndex] = this.tBaseOpeningFilter.pushData(ecg40Hz);
 
         this.ecgBufferIndex++;
         if (this.ecgBufferIndex >=  windowBufferSize) {
@@ -66,8 +109,20 @@ class EcgDelineator {
         if (this.detectionPeakR === true) {
             this.prevPosPeakR = this.posPeakR;
             this.posPeakR = this.ecgBufferIndex - 1;
+            this.onEndDetection = (this.posPeakR + ECGBaseDelay + SSearchWindow) % this.ecg40HzBuffer.length;
             this.judgePeakP();
             this.judgePeakT();
+        }
+
+        // QRS On-End
+        if (this.onEndDetection === this.ecgBufferIndex) {
+            if (this.detectionPeakP) {
+                this.detectOnEndP();
+            }
+
+            if (this.detectionPeakT) {
+                this.detectOnEndT();
+            }
         }
     }
 
@@ -87,12 +142,28 @@ class EcgDelineator {
         return this.posPeakP;
     }
 
+    isOnEndPDetected() {
+        return this.detectOnEndP;
+    }
+
+    getPosOnEndP() {
+        return this.posOnEndP.slice();
+    }
+
     isPeakTDetected() {
         return this.detectionPeakT;
     }
 
     getPosPeakT() {
         return this.posPeakT;
+    }
+
+    isOnEndTDetected() {
+        return this.detectOnEndT;
+    }
+
+    getPosOnEndT() {
+        return this.posOnEndT.slice();
     }
 
     updateAvgQRS(inputValue) {
@@ -125,23 +196,10 @@ class EcgDelineator {
         if ((detect < QRSFactor * this.avgQRS) && (Math.sign(this.secondDiffBuffer[this.ecgBufferIndex - 1] !== -1)))
             return false;
         
+        this.detectionOnEndR = false;
+        this.detectionOnEndT = false;
+        this.detectionOnEndP = false;
         return true;
-    }
-
-    indexOfAbsMax(arr) {
-        if (arr.length === 0)
-            return -1;
-    
-        var max = Math.abs(arr[0]);
-        var maxIndex = 0;
-        for (var i = 1; i < arr.length; i++) {
-            if (Math.abs(arr[i]) > max) {
-                maxIndex = i;
-                max = Math.abs(arr[i]);
-            }
-        }
-    
-        return maxIndex;
     }
 
     judgePeakP() {
@@ -174,7 +232,7 @@ class EcgDelineator {
         let maxValue = Math.max.apply(null, searchWindow.map(Math.abs));
         if (maxValue >= PFactor * this.avgQRS) {
             this.detectionPeakP = true;
-            this.posPeakP = (indexBase + this.indexOfAbsMax(searchWindow)) % this.secondDiffBuffer.length;
+            this.posPeakP = (indexBase + indexOfAbsMax(searchWindow)) % this.secondDiffBuffer.length;
         }
     }
 
@@ -209,9 +267,72 @@ class EcgDelineator {
         let maxValue = Math.max.apply(null, searchWindow.map(Math.abs));
         if (maxValue >= TFactor * this.avgQRS) {
             this.detectionPeakT = true;
-            this.posPeakT = (indexBase + this.indexOfAbsMax(searchWindow)) % this.secondDiffBuffer.length;
+            this.posPeakT = (indexBase + indexOfAbsMax(searchWindow)) % this.secondDiffBuffer.length;
         }
     }
+
+    detectOnEndR() {
+
+    }
+
+    detectOnEndP() {
+        var pIndex = this.posPeakP - 5;
+        var peakDiff = this.ecg40HzBuffer[pIndex] - this.pBaseBuffer[(pIndex + PBaseDelay) % this.pBaseBuffer.length];
+        var diffValue1 = this.ecg40HzBuffer[pIndex] - this.pBaseBuffer[(pIndex + PBaseDelay)  % this.pBaseBuffer.length];
+        var diffValue2 = this.ecg40HzBuffer[(pIndex - 1 + this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length]
+                        - this.pBaseBuffer[(pIndex - 1 + PBaseDelay + this.pBaseBuffer.length) % this.pBaseBuffer.length];
+        while ((diffValue1 >= diffValue2) && (diffValue1 >= (0.0025 * peakDiff))) {
+            pIndex = (pIndex-1+this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length;
+            diffValue1 = this.ecg40HzBuffer[pIndex] - this.pBaseBuffer[(pIndex + PBaseDelay) % this.pBaseBuffer.length];
+            diffValue2 = this.ecg40HzBuffer[(pIndex - 1 + this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length]
+                        - this.pBaseBuffer[(pIndex-1 + PBaseDelay + this.pBaseBuffer.length) % this.pBaseBuffer.length];
+        }
+        this.posOnEndP[0] = pIndex;
+
+        pIndex = this.posPeakP + 5;
+        diffValue1 = this.ecg40HzBuffer[pIndex] - this.pBaseBuffer[(pIndex + PBaseDelay)  % this.pBaseBuffer.length];
+        diffValue2 = this.ecg40HzBuffer[(pIndex + 1 + this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length]
+                        - this.pBaseBuffer[(pIndex+1 + PBaseDelay + this.pBaseBuffer.length)% this.pBaseBuffer.length];
+        while ((diffValue1 >= diffValue2) && (diffValue1 >= (0.0025 * peakDiff))) {
+            pIndex = (pIndex + 1 + this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length;
+            diffValue1 = this.ecg40HzBuffer[pIndex] - this.pBaseBuffer[(pIndex + PBaseDelay) % this.pBaseBuffer.length];
+            diffValue2 = this.ecg40HzBuffer[(pIndex + 1 + this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length]
+                        - this.pBaseBuffer[(pIndex + 1 + PBaseDelay + this.pBaseBuffer.length) % this.pBaseBuffer.length];
+        }
+        this.posOnEndP[1] = pIndex;
+
+        this.detectionOnEndP = true;
+    }
+
+    detectOnEndT() {
+        var pIndex = this.posPeakT - 5;
+        var peakDiff = this.ecg40HzBuffer[pIndex] - this.tBaseBuffer[(pIndex + TBaseDelay) % this.tBaseBuffer.length];
+        var diffValue1 = this.ecg40HzBuffer[pIndex] - this.tBaseBuffer[(pIndex + TBaseDelay)  % this.tBaseBuffer.length];
+        var diffValue2 = this.ecg40HzBuffer[(pIndex - 1 + this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length]
+                        - this.tBaseBuffer[(pIndex - 1 + TBaseDelay + this.tBaseBuffer.length) % this.tBaseBuffer.length];
+        while ((diffValue1 >= diffValue2) && (diffValue1 > (0.0025 * peakDiff))) {
+            pIndex = (pIndex-1+this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length;
+            diffValue1 = this.ecg40HzBuffer[pIndex] - this.tBaseBuffer[(pIndex + TBaseDelay) % this.tBaseBuffer.length];
+            diffValue2 = this.ecg40HzBuffer[(pIndex - 1 + this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length]
+                        - this.tBaseBuffer[(pIndex-1 + TBaseDelay + this.tBaseBuffer.length) % this.tBaseBuffer.length];
+        }
+        this.posOnEndT[0] = pIndex;
+
+        pIndex = this.posPeakT + 5;
+        diffValue1 = this.ecg40HzBuffer[pIndex] - this.tBaseBuffer[(pIndex + TBaseDelay)  % this.tBaseBuffer.length];
+        diffValue2 = this.ecg40HzBuffer[(pIndex + 1 + this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length]
+                        - this.tBaseBuffer[(pIndex+1 + TBaseDelay + this.tBaseBuffer.length)% this.tBaseBuffer.length];
+        while ((diffValue1 >= diffValue2) && (diffValue1 > (0.0025 * peakDiff))) {
+            pIndex = (pIndex + 1 + this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length;
+            diffValue1 = this.ecg40HzBuffer[pIndex] - this.tBaseBuffer[(pIndex + TBaseDelay) % this.tBaseBuffer.length];
+            diffValue2 = this.ecg40HzBuffer[(pIndex + 1 + this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length]
+                        - this.tBaseBuffer[(pIndex + 1 + TBaseDelay + this.tBaseBuffer.length) % this.tBaseBuffer.length];
+        }
+        this.posOnEndT[1] = pIndex;
+
+        this.detectionOnEndT = true;
+    }
+
 
 
     /**
@@ -219,10 +340,16 @@ class EcgDelineator {
      * @returns {number} ECG Value
      */
     getEcg40HzData() {
+        var index = (this.ecgBufferIndex - 1 + this.tBaseBuffer.length) % this.tBaseBuffer.length;
+        return this.ecg40HzBuffer[index];
+    }
+
+    getBaseline() {
         if (this.ecgBufferIndex === 0)
-            return this.ecg40HzBuffer[this.ecg40HzBuffer.length - 1];
+            return this.tBaseBuffer[this.ecg40HzBuffer.length - 1];
         else
-            return this.ecg40HzBuffer[this.ecgBufferIndex - 1];
+            return this.tBaseBuffer[this.ecgBufferIndex - 1];
+
     }
 
 }

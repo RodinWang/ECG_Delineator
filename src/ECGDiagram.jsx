@@ -1,6 +1,9 @@
 import React from "react";
 
 const ECG_COLOR = "#0000FF";
+const R_COLOR = "rgb(200,0,0)";
+const T_COLOR = "#FF00FF";
+const P_COLOR = "#009900";
 const SECOND_DIFF_DELAY = 3;
 
 class ECGDiagram extends React.Component{
@@ -12,6 +15,7 @@ class ECGDiagram extends React.Component{
 	drawPointsIndex = 0;
     canvasRef1 = null;
     canvasRef2 = null;
+    currentRPeak = 0;
 
     signalReverse(data){
 		data = Math.abs(data-255);
@@ -67,12 +71,14 @@ class ECGDiagram extends React.Component{
         const ctx2 = c2.getContext("2d");
         
         var originFillStyle = ctx2.fillStyle;
-        var x_value = (this.drawPointsIndex-1-SECOND_DIFF_DELAY) * (c2.width / (this.sampleFreq * this.frameLength));
-        ctx2.fillStyle = "rgb(200,0,0)";
+        var x_value = (this.drawPointsIndex - SECOND_DIFF_DELAY) * (c2.width / (this.sampleFreq * this.frameLength));
+        ctx2.fillStyle = R_COLOR;
         ctx2.beginPath();
         ctx2.arc(x_value.toFixed(2) , this.data[this.drawPointsIndex-SECOND_DIFF_DELAY], 4, 0, Math.PI*2, true);
         ctx2.fill();
         ctx2.closePath();
+
+        this.currentRPeak = this.drawPointsIndex;
 
         ctx2.fillStyle = originFillStyle;
     }
@@ -87,10 +93,10 @@ class ECGDiagram extends React.Component{
         var x_index;
         var x_value;
 
-        x_index = ((this.drawPointsIndex - 1 - SECOND_DIFF_DELAY - PRInterval + (this.sampleFreq * this.frameLength)) % (this.sampleFreq * this.frameLength));
+        x_index = ((this.drawPointsIndex - SECOND_DIFF_DELAY - PRInterval + (this.sampleFreq * this.frameLength)) % (this.sampleFreq * this.frameLength));
         x_value = x_index * (c2.width / (this.sampleFreq * this.frameLength));
 
-        ctx2.fillStyle = "#009900";
+        ctx2.fillStyle = P_COLOR;
         ctx2.beginPath();
         ctx2.arc(x_value.toFixed(2) , this.data[x_index], 4, 0, Math.PI*2, true);
         ctx2.fill();
@@ -109,10 +115,10 @@ class ECGDiagram extends React.Component{
         var x_index;
         var x_value;
 
-        x_index = ((this.drawPointsIndex - 1 - SECOND_DIFF_DELAY - TRInterval + (this.sampleFreq * this.frameLength)) % (this.sampleFreq * this.frameLength));
+        x_index = ((this.drawPointsIndex - SECOND_DIFF_DELAY - TRInterval + (this.sampleFreq * this.frameLength)) % (this.sampleFreq * this.frameLength));
         x_value = x_index * (c2.width / (this.sampleFreq * this.frameLength));
 
-        ctx2.fillStyle = "#FF00FF";
+        ctx2.fillStyle = T_COLOR;
         ctx2.beginPath();
         ctx2.arc(x_value.toFixed(2) , this.data[x_index], 4, 0, Math.PI*2, true);
         ctx2.fill();
@@ -132,7 +138,7 @@ class ECGDiagram extends React.Component{
         ctx2.beginPath();
         if (this.drawPointsIndex === 0) {            
             x_value2 = this.drawPointsIndex * (c2.width / (this.sampleFreq * this.frameLength));
-            ctx2.clearRect(0, 0, clearWidth, c2.height);
+            ctx2.clearRect(0, 0, clearWidth + 1, c2.height);
             ctx2.moveTo( 0, this.data[0]);
             ctx2.lineTo( x_value2.toFixed(2) , this.data[0]);
         }
@@ -156,6 +162,60 @@ class ECGDiagram extends React.Component{
 		}
     }
 
+    drawOnEndT() {
+        const c2 = this.canvasRef2.current;
+        const ctx2 = c2.getContext("2d");
+        
+        var originStrokeStyle = ctx2.strokeStyle;
+        var TInterval0 = (this.props.data.Peak.PeakR - this.props.data.onEnd.onEndT[0] + (this.sampleFreq*2)) % (this.sampleFreq*2);
+        var TInterval1 = (this.props.data.Peak.PeakR - this.props.data.onEnd.onEndT[1] + (this.sampleFreq*2)) % (this.sampleFreq*2);
+        var x_index0, x_index1;
+        var x_value0, x_value1;
+
+        x_index0 = ((this.currentRPeak - 1 - SECOND_DIFF_DELAY - TInterval0 + (this.sampleFreq * this.frameLength)) % (this.sampleFreq * this.frameLength));
+        x_value0 = x_index0 * (c2.width / (this.sampleFreq * this.frameLength));
+        x_index1 = ((this.currentRPeak - 1 - SECOND_DIFF_DELAY - TInterval1 + (this.sampleFreq * this.frameLength)) % (this.sampleFreq * this.frameLength));
+        x_value1 = x_index1 * (c2.width / (this.sampleFreq * this.frameLength));
+
+        ctx2.strokeStyle = T_COLOR;
+        ctx2.beginPath();
+        ctx2.moveTo(x_value0.toFixed(2), this.data[x_index0]);
+        ctx2.lineTo(x_value0.toFixed(2), this.data[x_index0] - 20);
+        ctx2.moveTo(x_value1.toFixed(2), this.data[x_index1]);
+        ctx2.lineTo(x_value1.toFixed(2), this.data[x_index1] - 20);
+        ctx2.stroke();
+        ctx2.closePath();
+
+        ctx2.strokeStyle = originStrokeStyle;
+    }
+
+    drawOnEndP() {
+        const c2 = this.canvasRef2.current;
+        const ctx2 = c2.getContext("2d");
+        
+        var originStrokeStyle = ctx2.strokeStyle;
+        var PInterval0 = (this.props.data.Peak.PeakR - this.props.data.onEnd.onEndP[0] + (this.sampleFreq*2)) % (this.sampleFreq*2);
+        var PInterval1 = (this.props.data.Peak.PeakR - this.props.data.onEnd.onEndP[1] + (this.sampleFreq*2)) % (this.sampleFreq*2);
+        var x_index0, x_index1;
+        var x_value0, x_value1;
+
+        x_index0 = ((this.currentRPeak - 1 - SECOND_DIFF_DELAY - PInterval0 + (this.sampleFreq * this.frameLength)) % (this.sampleFreq * this.frameLength));
+        x_value0 = x_index0 * (c2.width / (this.sampleFreq * this.frameLength));
+        x_index1 = ((this.currentRPeak - 1 - SECOND_DIFF_DELAY - PInterval1 + (this.sampleFreq * this.frameLength)) % (this.sampleFreq * this.frameLength));
+        x_value1 = x_index1 * (c2.width / (this.sampleFreq * this.frameLength));
+
+        ctx2.strokeStyle = P_COLOR;
+        ctx2.beginPath();
+        ctx2.moveTo(x_value0.toFixed(2), this.data[x_index0]);
+        ctx2.lineTo(x_value0.toFixed(2), this.data[x_index0] - 20);
+        ctx2.moveTo(x_value1.toFixed(2), this.data[x_index1]);
+        ctx2.lineTo(x_value1.toFixed(2), this.data[x_index1] - 20);
+        ctx2.stroke();
+        ctx2.closePath();
+
+        ctx2.strokeStyle = originStrokeStyle;
+    }
+
     componentDidUpdate(prevProps) {
         // if props updated
         if (this.props.data !== prevProps.data) {
@@ -170,6 +230,17 @@ class ECGDiagram extends React.Component{
         if (this.props.data.Peak.PeakT !== prevProps.data.Peak.PeakT) {
             this.drawPeakT();
         }
+        if (this.props.data.onEnd.onEndR !== prevProps.data.onEnd.onEndR) {
+            console.log("Draw R On-End");
+        }
+        if ((this.props.data.onEnd.onEndP[0] !== prevProps.data.onEnd.onEndP[0]) || 
+            (this.props.data.onEnd.onEndP[1] !== prevProps.data.onEnd.onEndP[1])) {
+            this.drawOnEndP();
+        }
+        if ((this.props.data.onEnd.onEndT[0] !== prevProps.data.onEnd.onEndT[0]) || 
+            (this.props.data.onEnd.onEndT[1] !== prevProps.data.onEnd.onEndT[1])) {
+            this.drawOnEndT();
+        }
     } 
 
 
@@ -178,13 +249,13 @@ class ECGDiagram extends React.Component{
             <div>
                 <div className="container-fluid">
                     <div style={{float: 'left',}}>
-						<canvas ref={this.canvasRef1} id="myCanvas1" width="1000" height="256">
+						<canvas ref={this.canvasRef1} id="myCanvas1" width="1250" height="256">
 							Your browser does not support the HTML canvas tag.
 						</canvas>
 					</div>
 			
 					<div style={{float: 'top', position: 'absolute'}}>
-						<canvas ref={this.canvasRef2} id="myCanvas2" width="1000" height="256">
+						<canvas ref={this.canvasRef2} id="myCanvas2" width="1250" height="256">
 							Your browser does not support the HTML canvas tag.
 						</canvas>
 					</div>
