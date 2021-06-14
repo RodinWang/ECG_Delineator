@@ -120,7 +120,25 @@ class ECGDiagram extends React.Component{
     }
 
     drawPeakQ() {
-        console.log("Draw Peak Q");
+        const c2 = this.canvasRef2.current;
+        const ctx2 = c2.getContext("2d");
+        
+        var originFillStyle = ctx2.fillStyle;
+        var QRInterval = (this.currentRPeak - this.props.data.Peak.PeakQ + (this.sampleFreq*2)) % (this.sampleFreq*2);
+        
+        var x_index;
+        var x_value;
+
+        x_index = ((this.currentRPeak - QRInterval + (this.sampleFreq * this.frameLength)) % (this.sampleFreq * this.frameLength));
+        x_value = x_index * (c2.width / (this.sampleFreq * this.frameLength));
+
+        ctx2.fillStyle = R_COLOR;
+        ctx2.beginPath();
+        ctx2.arc(x_value.toFixed(2) , this.data[x_index], 4, 0, Math.PI*2, true);
+        ctx2.fill();
+        ctx2.closePath();
+
+        ctx2.fillStyle = originFillStyle;
     }
 
     drawPeakS() {
@@ -132,12 +150,12 @@ class ECGDiagram extends React.Component{
         const ctx2 = c2.getContext("2d");
         
         var originFillStyle = ctx2.fillStyle;
-        var PRInterval = (this.props.data.Peak.PeakR - this.props.data.Peak.PeakP + (this.sampleFreq*2)) % (this.sampleFreq*2);
+        var PRInterval = (this.currentRPeak - this.props.data.Peak.PeakP + (this.sampleFreq*2)) % (this.sampleFreq*2);
         
         var x_index;
         var x_value;
 
-        x_index = ((this.drawPointsIndex - SECOND_DIFF_DELAY - PRInterval + (this.sampleFreq * this.frameLength)) % (this.sampleFreq * this.frameLength));
+        x_index = ((this.currentRPeak - SECOND_DIFF_DELAY - PRInterval + (this.sampleFreq * this.frameLength)) % (this.sampleFreq * this.frameLength));
         x_value = x_index * (c2.width / (this.sampleFreq * this.frameLength));
 
         ctx2.fillStyle = P_COLOR;
@@ -154,12 +172,12 @@ class ECGDiagram extends React.Component{
         const ctx2 = c2.getContext("2d");
         
         var originFillStyle = ctx2.fillStyle;
-        var TRInterval = (this.props.data.Peak.PeakR - this.props.data.Peak.PeakT + (this.sampleFreq*2)) % (this.sampleFreq*2);
+        var TRInterval = (this.currentRPeak - this.props.data.Peak.PeakT + (this.sampleFreq*2)) % (this.sampleFreq*2);
 
         var x_index;
         var x_value;
 
-        x_index = ((this.drawPointsIndex - SECOND_DIFF_DELAY - TRInterval + (this.sampleFreq * this.frameLength)) % (this.sampleFreq * this.frameLength));
+        x_index = ((this.currentRPeak - SECOND_DIFF_DELAY - TRInterval + (this.sampleFreq * this.frameLength)) % (this.sampleFreq * this.frameLength));
         x_value = x_index * (c2.width / (this.sampleFreq * this.frameLength));
 
         ctx2.fillStyle = T_COLOR;
@@ -180,8 +198,9 @@ class ECGDiagram extends React.Component{
         const ctx2 = c2.getContext("2d");
         
         var originStrokeStyle = ctx2.strokeStyle;
-        var TInterval0 = (this.props.data.Peak.PeakR - this.props.data.onEnd.onEndT[0] + (this.sampleFreq*2)) % (this.sampleFreq*2);
-        var TInterval1 = (this.props.data.Peak.PeakR - this.props.data.onEnd.onEndT[1] + (this.sampleFreq*2)) % (this.sampleFreq*2);
+        var originLineWidth = ctx2.lineWidth;
+        var TInterval0 = (this.currentRPeak - this.props.data.onEnd.onEndT[0] + (this.sampleFreq*2)) % (this.sampleFreq*2);
+        var TInterval1 = (this.currentRPeak - this.props.data.onEnd.onEndT[1] + (this.sampleFreq*2)) % (this.sampleFreq*2);
         var x_index0, x_index1;
         var x_value0, x_value1;
 
@@ -191,6 +210,7 @@ class ECGDiagram extends React.Component{
         x_value1 = x_index1 * (c2.width / (this.sampleFreq * this.frameLength));
 
         ctx2.strokeStyle = T_COLOR;
+        ctx2.lineWidth = 2;
         ctx2.beginPath();
         ctx2.moveTo(x_value0.toFixed(2), this.data[x_index0]);
         ctx2.lineTo(x_value0.toFixed(2), this.data[x_index0] - 20);
@@ -199,6 +219,7 @@ class ECGDiagram extends React.Component{
         ctx2.stroke();
         ctx2.closePath();
 
+        ctx2.lineWidth = originLineWidth;
         ctx2.strokeStyle = originStrokeStyle;
     }
 
@@ -206,9 +227,10 @@ class ECGDiagram extends React.Component{
         const c2 = this.canvasRef2.current;
         const ctx2 = c2.getContext("2d");
         
+        var originLineWidth = ctx2.lineWidth;
         var originStrokeStyle = ctx2.strokeStyle;
-        var PInterval0 = (this.props.data.Peak.PeakR - this.props.data.onEnd.onEndP[0] + (this.sampleFreq*2)) % (this.sampleFreq*2);
-        var PInterval1 = (this.props.data.Peak.PeakR - this.props.data.onEnd.onEndP[1] + (this.sampleFreq*2)) % (this.sampleFreq*2);
+        var PInterval0 = (this.currentRPeak - this.props.data.onEnd.onEndP[0] + (this.sampleFreq*2)) % (this.sampleFreq*2);
+        var PInterval1 = (this.currentRPeak - this.props.data.onEnd.onEndP[1] + (this.sampleFreq*2)) % (this.sampleFreq*2);
         var x_index0, x_index1;
         var x_value0, x_value1;
 
@@ -218,6 +240,7 @@ class ECGDiagram extends React.Component{
         x_value1 = x_index1 * (c2.width / (this.sampleFreq * this.frameLength));
 
         ctx2.strokeStyle = P_COLOR;
+        ctx2.lineWidth = 2;
         ctx2.beginPath();
         ctx2.moveTo(x_value0.toFixed(2), this.data[x_index0]);
         ctx2.lineTo(x_value0.toFixed(2), this.data[x_index0] - 20);
@@ -226,6 +249,7 @@ class ECGDiagram extends React.Component{
         ctx2.stroke();
         ctx2.closePath();
 
+        ctx2.lineWidth = originLineWidth;
         ctx2.strokeStyle = originStrokeStyle;
     }
 

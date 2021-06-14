@@ -134,12 +134,12 @@ class App extends React.Component {
 
       if (this.ecgDelineator.isPeakQDetected()) {
         if (rPeakEnable)
-          posPeakQ = this.ecgDelineator.getPosPeakQ;
+          posPeakQ = this.ecgDelineator.getPosPeakQ();
       }
 
       if (this.ecgDelineator.isPeakQDetected()) {
         if (rPeakEnable)
-          posPeakS = this.ecgDelineator.getPosPeakS;
+          posPeakS = this.ecgDelineator.getPosPeakS();
       }
 
       if (this.ecgDelineator.isOnEndRDetected()) {

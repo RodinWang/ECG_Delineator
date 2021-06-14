@@ -9,8 +9,10 @@ const windowBufferSize = samplingFreq * windowLength;
 const QRSFactor = 0.45;
 const PFactor = 0.01;
 const TFactor = 0.01;
-const PSearchWindow = [0.1 * samplingFreq, 0.2 * samplingFreq];
-const TSearchWindow = [0.2 * samplingFreq, 0.4 * samplingFreq];
+const QSearchWindowSize = 0.1 * samplingFreq;
+const SSearchWindowSize = 0.1 * samplingFreq;
+const PSearchWindowSize = [0.1 * samplingFreq, 0.2 * samplingFreq];
+const TSearchWindowSize = [0.2 * samplingFreq, 0.4 * samplingFreq];
 const ECGBaseOpeningFilterSize = 0.2 * samplingFreq;
 const ECGBaseClosingFilterSize = ECGBaseOpeningFilterSize *  1.5;
 const PBaseFilterSize = 0.12 * samplingFreq;
@@ -18,11 +20,14 @@ const TBaseFilterSize = 0.2 * samplingFreq;
 const ECGBaseDelay = (ECGBaseOpeningFilterSize + ECGBaseClosingFilterSize);
 const PBaseDelay = (PBaseFilterSize);
 const TBaseDelay = (TBaseFilterSize);
-const SSearchWindow = 0.1 * samplingFreq;
 
 function SumOfArray(arr){
     return arr.reduce((a,b)=>a+b);  
 }
+
+function diffNumber(arr1, arr2){
+    return arr1.map(function (num, idx) { return num- arr2[idx] }).slice();
+} 
 
 function indexOfAbsMax(arr) {
     if (arr.length === 0)
@@ -112,7 +117,7 @@ class EcgDelineator {
         if (this.detectionPeakR === true) {
             this.prevPosPeakR = this.posPeakR;
             this.posPeakR = this.ecgBufferIndex - 1;
-            this.onEndDetection = (this.posPeakR + ECGBaseDelay + SSearchWindow) % this.ecg40HzBuffer.length;
+            this.onEndDetection = (this.posPeakR + ECGBaseDelay) % this.ecg40HzBuffer.length;
             this.detectPeakP();
             this.detectPeakT();
         }
@@ -126,6 +131,10 @@ class EcgDelineator {
             if (this.detectionPeakT) {
                 this.detectOnEndT();
             }
+
+            this.detectPeakQ();
+            this.detectPeakS();
+            this.detectOnEndR();
         }
     }
 
@@ -231,8 +240,59 @@ class EcgDelineator {
         return true;
     }
 
+    detectPeakQ() {
+        
+        let qSearchWindow;
+        let ecgSearchWindow;
+        this.detectionPeakQ = false;
+        
+        // find window border
+        let windowBorder = [this.posPeakR - QSearchWindowSize, this.posPeakR];
+
+        if (windowBorder[0] < 0)
+            windowBorder[0] = windowBorder[0] + this.ecg40HzBuffer.length;
+        
+        let indexBase = windowBorder[0];
+        
+        let ecgBaseWindowBorder = [ ( windowBorder[0] + ECGBaseDelay + this.ecgBaseBuffer.length) % this.ecgBaseBuffer.length,
+                                    ( windowBorder[1] + ECGBaseDelay + this.ecgBaseBuffer.length) % this.ecgBaseBuffer.length];
+
+        // Get Search Window Data
+        if (windowBorder[0] > windowBorder[1]) {
+            var qWindow1 = this.ecg40HzBuffer.slice(windowBorder[0], this.ecg40HzBuffer.length);
+            var qWindow2 = this.ecg40HzBuffer.slice(0, windowBorder[1]);
+            qSearchWindow = qWindow1.concat(qWindow2) ;
+        }
+        else {
+            qSearchWindow = this.ecg40HzBuffer.slice(windowBorder[0], windowBorder[1]);
+        }
+
+        if (ecgBaseWindowBorder[0] > ecgBaseWindowBorder[1]) {
+            var ecgBaseWindow1 = this.ecgBaseBuffer.slice(ecgBaseWindowBorder[0], this.ecgBaseBuffer.length);
+            var ecgBaseWindow2 = this.ecgBaseBuffer.slice(0, ecgBaseWindowBorder[1]);
+            ecgSearchWindow = ecgBaseWindow1.concat(ecgBaseWindow2) ;
+        }
+        else {
+            ecgSearchWindow = this.ecgBaseBuffer.slice(ecgBaseWindowBorder[0], ecgBaseWindowBorder[1]);
+        }
+        
+        // find Peak Q
+        let diffWindow = diffNumber(qSearchWindow, ecgSearchWindow);
+
+        let minValue = Math.min(...diffWindow);
+        if ( (Math.abs(minValue) > (Math.abs(diffWindow[diffWindow.length-1]) * 0.05)) &&
+             (Math.sign(minValue) === -1)){
+            this.detectionPeakQ = true;
+            this.posPeakQ = (indexBase + qSearchWindow.indexOf(Math.min(...qSearchWindow)) + this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length
+        }
+    }
+
+    detectPeakS() {
+
+    }
+
     detectPeakP() {
-        let windowBorder = [PSearchWindow[0], PSearchWindow[1]];
+        let windowBorder = [PSearchWindowSize[0], PSearchWindowSize[1]];
         
         let rrInterval = (windowBufferSize + this.posPeakR - this.prevPosPeakR) % windowBufferSize;
         if ( (rrInterval/2) < windowBorder[1])
@@ -244,8 +304,8 @@ class EcgDelineator {
 
         let slice_index = [0, 0];
 
-        slice_index[0] = (this.ecgBufferIndex - windowBorder[1] + this.secondDiffBuffer.length) % this.secondDiffBuffer.length;
-        slice_index[1] = (this.ecgBufferIndex - windowBorder[0] + this.secondDiffBuffer.length) % this.secondDiffBuffer.length;
+        slice_index[0] = (this.posPeakR - windowBorder[1] + this.secondDiffBuffer.length) % this.secondDiffBuffer.length;
+        slice_index[1] = (this.posPeakR - windowBorder[0] + this.secondDiffBuffer.length) % this.secondDiffBuffer.length;
         indexBase = slice_index[0];
         // Get Search Window Data
         if (slice_index[0] > slice_index[1]) {
@@ -266,7 +326,7 @@ class EcgDelineator {
     }
 
     detectPeakT() {
-        let windowBorder = [TSearchWindow[0], TSearchWindow[1]];
+        let windowBorder = [TSearchWindowSize[0], TSearchWindowSize[1]];
         
         let rrInterval = (windowBufferSize + this.posPeakR - this.prevPosPeakR) % windowBufferSize;
         if ( (rrInterval/2) < windowBorder[1])
@@ -278,8 +338,8 @@ class EcgDelineator {
 
         let slice_index = [0, 0];
 
-        slice_index[0] = (this.ecgBufferIndex - (rrInterval - windowBorder[0]) + this.secondDiffBuffer.length) % this.secondDiffBuffer.length;
-        slice_index[1] = (this.ecgBufferIndex - (rrInterval - windowBorder[1]) + this.secondDiffBuffer.length) % this.secondDiffBuffer.length;
+        slice_index[0] = (this.posPeakR - (rrInterval - windowBorder[0]) + this.secondDiffBuffer.length) % this.secondDiffBuffer.length;
+        slice_index[1] = (this.posPeakR - (rrInterval - windowBorder[1]) + this.secondDiffBuffer.length) % this.secondDiffBuffer.length;
         indexBase = slice_index[0];
 
         // Get Search Window Data
