@@ -56,7 +56,7 @@ class EcgDelineator {
         // Delay 1 Buffer frame
         this.startupDelay = 0;
 
-        this.onEndDetection = 0;
+        this.onEndDetection = [];
 
         // filter
         this.firstDiffFilter = new FirstDerivativeFilter();
@@ -116,14 +116,15 @@ class EcgDelineator {
         this.detectionPeakR = this.detectPeakR();
         if (this.detectionPeakR === true) {
             this.prevPosPeakR = this.posPeakR;
-            this.posPeakR = this.ecgBufferIndex - 1;
-            this.onEndDetection = (this.posPeakR + ECGBaseDelay) % this.ecg40HzBuffer.length;
+            this.posPeakR = this.ecgBufferIndex;
+            this.onEndDetection.push((this.posPeakR + ECGBaseDelay + SSearchWindowSize) % this.ecg40HzBuffer.length);
             this.detectPeakP();
             this.detectPeakT();
         }
 
         // On-End
-        if (this.onEndDetection === this.ecgBufferIndex) {
+        if (this.onEndDetection[0] === this.ecgBufferIndex) {
+            this.onEndDetection.shift();
             if (this.detectionPeakP) {
                 this.detectOnEndP();
             }
