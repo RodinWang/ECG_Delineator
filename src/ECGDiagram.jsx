@@ -142,7 +142,25 @@ class ECGDiagram extends React.Component{
     }
 
     drawPeakS() {
-        console.log("Draw Peak S");
+        const c2 = this.canvasRef2.current;
+        const ctx2 = c2.getContext("2d");
+        
+        var originFillStyle = ctx2.fillStyle;
+        var RSInterval = (this.props.data.Peak.PeakS - this.currentRPeak + (this.sampleFreq*2)) % (this.sampleFreq*2);
+        
+        var x_index;
+        var x_value;
+
+        x_index = ((this.currentRPeak + RSInterval + (this.sampleFreq * this.frameLength)) % (this.sampleFreq * this.frameLength));
+        x_value = x_index * (c2.width / (this.sampleFreq * this.frameLength));
+
+        ctx2.fillStyle = R_COLOR;
+        ctx2.beginPath();
+        ctx2.arc(x_value.toFixed(2) , this.data[x_index], 4, 0, Math.PI*2, true);
+        ctx2.fill();
+        ctx2.closePath();
+
+        ctx2.fillStyle = originFillStyle;
     }
 
     drawPeakP() {

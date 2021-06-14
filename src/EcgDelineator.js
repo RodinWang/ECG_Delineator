@@ -289,7 +289,48 @@ class EcgDelineator {
     }
 
     detectPeakS() {
+        let sSearchWindow;
+        let ecgSearchWindow;
+        this.detectionPeakS = false;
+        
+        // find window border
+        let windowBorder = [this.posPeakR, this.posPeakR + SSearchWindowSize];
 
+        if (windowBorder[1] > this.ecg40HzBuffer.length)
+            windowBorder[1] = windowBorder[1] - this.ecg40HzBuffer.length;
+        
+        let indexBase = windowBorder[0];
+        
+        let ecgBaseWindowBorder = [ ( windowBorder[0] + ECGBaseDelay + this.ecgBaseBuffer.length) % this.ecgBaseBuffer.length,
+                                    ( windowBorder[1] + ECGBaseDelay + this.ecgBaseBuffer.length) % this.ecgBaseBuffer.length];
+
+        // Get Search Window Data
+        if (windowBorder[0] > windowBorder[1]) {
+            var sWindow1 = this.ecg40HzBuffer.slice(windowBorder[0], this.ecg40HzBuffer.length);
+            var sWindow2 = this.ecg40HzBuffer.slice(0, windowBorder[1]);
+            sSearchWindow = sWindow1.concat(sWindow2) ;
+        }
+        else {
+            sSearchWindow = this.ecg40HzBuffer.slice(windowBorder[0], windowBorder[1]);
+        }
+
+        if (ecgBaseWindowBorder[0] > ecgBaseWindowBorder[1]) {
+            var ecgBaseWindow1 = this.ecgBaseBuffer.slice(ecgBaseWindowBorder[0], this.ecgBaseBuffer.length);
+            var ecgBaseWindow2 = this.ecgBaseBuffer.slice(0, ecgBaseWindowBorder[1]);
+            ecgSearchWindow = ecgBaseWindow1.concat(ecgBaseWindow2) ;
+        }
+        else {
+            ecgSearchWindow = this.ecgBaseBuffer.slice(ecgBaseWindowBorder[0], ecgBaseWindowBorder[1]);
+        }
+        
+        // find Peak S
+        let diffWindow = diffNumber(sSearchWindow, ecgSearchWindow);
+        let minValue = Math.min(...diffWindow);
+        if ( (Math.abs(minValue) > (Math.abs(diffWindow[0]) * 0.05)) &&
+             (Math.sign(minValue) === -1)){
+            this.detectionPeakS = true;
+            this.posPeakS = (indexBase + sSearchWindow.indexOf(Math.min(...sSearchWindow)) + this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length
+        }
     }
 
     detectPeakP() {
