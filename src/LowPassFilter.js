@@ -1,10 +1,10 @@
 /**
  * This module contains the Low Pass FIR Filter.
  */
-
+import { global } from './global';
 var Fili = require('fili/dist/fili.min');
 
-var samplingFreq = 500;
+var samplingFreq = global.samplingFreq;
 var filterOrder = 50;
 
 

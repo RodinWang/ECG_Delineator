@@ -57,6 +57,8 @@ class App extends React.Component {
     this.state = {
       ecgSignal: [],
       peakR: [],
+      peakQ: [],
+      PeakS: [],
       peakP: [],
       peakT: [],
       onEndR: [],
@@ -97,7 +99,7 @@ class App extends React.Component {
   }
 
   handleEcgDraw() {
-    const { ecgSignal, PeakR, PeakP, PeakT, onEndR, onEndP, onEndT, pPeakEnable, rPeakEnable, tPeakEnable, pOnEndEnable, rOnEndEnable, tOnEndEnable } = this.state;
+    const { ecgSignal, PeakR, PeakQ, PeakS, PeakP, PeakT, onEndR, onEndP, onEndT, pPeakEnable, rPeakEnable, tPeakEnable, pOnEndEnable, rOnEndEnable, tOnEndEnable } = this.state;
 
 		if (this.dataIndex >= 9999) {
 			clearInterval(this.timerId);
@@ -108,6 +110,8 @@ class App extends React.Component {
       var ecg = this.ecgDelineator.getEcg40HzData();
 
       var posPeakR = PeakR;
+      var posPeakQ = PeakQ;
+      var posPeakS = PeakS;
       var posPeakP = PeakP;
       var posPeakT = PeakT;
       var posOnEndR = onEndR;
@@ -128,6 +132,21 @@ class App extends React.Component {
         }
       }
 
+      if (this.ecgDelineator.isPeakQDetected()) {
+        if (rPeakEnable)
+          posPeakQ = this.ecgDelineator.getPosPeakQ;
+      }
+
+      if (this.ecgDelineator.isPeakQDetected()) {
+        if (rPeakEnable)
+          posPeakS = this.ecgDelineator.getPosPeakS;
+      }
+
+      if (this.ecgDelineator.isOnEndRDetected()) {
+        if (rOnEndEnable)
+          posOnEndR = this.ecgDelineator.getPosOnEndR();
+      }
+
       if (this.ecgDelineator.isOnEndTDetected()) {
         if (tOnEndEnable)
           posOnEndT = this.ecgDelineator.getPosOnEndT();
@@ -136,15 +155,15 @@ class App extends React.Component {
       if (this.ecgDelineator.isOnEndPDetected()) {
         if (pOnEndEnable)
           posOnEndP = this.ecgDelineator.getPosOnEndP();
-      }
-
-      
+      }     
 
       ecgSignal.push(ecg);
 			this.dataIndex = this.dataIndex + 1;
       this.setState({
         ecgSignal: ecgSignal.slice(),
         PeakR: posPeakR,
+        PeakQ: posPeakQ,
+        PeakS: posPeakS,
         PeakP: posPeakP,
         PeakT: posPeakT,
         onEndR: posOnEndR,
@@ -287,13 +306,15 @@ class App extends React.Component {
   }
 
   render() {
-    let { ecgSignal, PeakR, PeakP, PeakT, onEndR, onEndP, onEndT, pPeakEnable, rPeakEnable, tPeakEnable, pOnEndEnable, rOnEndEnable, tOnEndEnable } = this.state;
+    let { ecgSignal, PeakR, PeakQ, PeakS, PeakP, PeakT, onEndR, onEndP, onEndT, pPeakEnable, rPeakEnable, tPeakEnable, pOnEndEnable, rOnEndEnable, tOnEndEnable } = this.state;
     let data = {
       ECG: {
         ecgSignal
       },
       Peak: {
         PeakR,
+        PeakQ,
+        PeakS,
         PeakP,
         PeakT,
       },

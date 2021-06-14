@@ -1,10 +1,9 @@
-
 import { pushDataLowPassFilter14Hz, pushDataLowPassFilter40Hz } from './LowPassFilter';
 import { FirstDerivativeFilter, SecondDerivativeFilter } from './DifferentialFilter';
 import { OpeningFilter, ClosingFilter } from './MorphologicalFilter';
+import { global } from './global';
 
-
-const samplingFreq = 500;
+const samplingFreq = global.samplingFreq;
 const windowLength = 2
 const windowBufferSize = samplingFreq * windowLength;
 const QRSFactor = 0.45;
@@ -76,6 +75,10 @@ class EcgDelineator {
         this.prevPosPeakR = 0;
         this.posPeakR = 0;
         this.detectionPeakR = false;
+        this.posPeakQ = 0;
+        this.detectionPeakQ = false;
+        this.posPeakS = 0;
+        this.detectionPeakS = false;
         this.posPeakP = 0;
         this.detectionPeakP = false;
         this.posPeakT = 0;
@@ -105,16 +108,16 @@ class EcgDelineator {
             this.ecgBufferIndex = 0;
         }
 
-        this.detectionPeakR = this.judgePeakQRS();
+        this.detectionPeakR = this.detectPeakR();
         if (this.detectionPeakR === true) {
             this.prevPosPeakR = this.posPeakR;
             this.posPeakR = this.ecgBufferIndex - 1;
             this.onEndDetection = (this.posPeakR + ECGBaseDelay + SSearchWindow) % this.ecg40HzBuffer.length;
-            this.judgePeakP();
-            this.judgePeakT();
+            this.detectPeakP();
+            this.detectPeakT();
         }
 
-        // QRS On-End
+        // On-End
         if (this.onEndDetection === this.ecgBufferIndex) {
             if (this.detectionPeakP) {
                 this.detectOnEndP();
@@ -134,6 +137,30 @@ class EcgDelineator {
         return this.posPeakR;
     }
 
+    isOnEndRDetected() {
+        return this.detectionOnEndR;
+    }
+
+    getPosOnEndR() {
+        return this.posOnEndR.slice();
+    }
+
+    isPeakQDetected() {
+        return this.detectionPeakQ;
+    }
+
+    getPosPeakQ() {
+        return this.posPeakQ;
+    }
+
+    isPeakSDetected() {
+        return this.detectionPeakS;
+    }
+
+    getPosPeakS() {
+        return this.posPeakS;
+    }
+
     isPeakPDetected() {
         return this.detectionPeakP;
     }
@@ -143,7 +170,7 @@ class EcgDelineator {
     }
 
     isOnEndPDetected() {
-        return this.detectOnEndP;
+        return this.detectionOnEndP;
     }
 
     getPosOnEndP() {
@@ -159,7 +186,7 @@ class EcgDelineator {
     }
 
     isOnEndTDetected() {
-        return this.detectOnEndT;
+        return this.detectionOnEndT;
     }
 
     getPosOnEndT() {
@@ -176,7 +203,7 @@ class EcgDelineator {
         return Math.sign(this.firstDiffBuffer[index]);
     }
 
-    judgePeakQRS() {
+    detectPeakR() {
         // 1st Diff sign changed?
         if (this.ecgBufferIndex === 0) {
             if (this.getSignOfFirstDiff(windowBufferSize - 2) === this.getSignOfFirstDiff(windowBufferSize - 1))
@@ -197,12 +224,14 @@ class EcgDelineator {
             return false;
         
         this.detectionOnEndR = false;
+        this.detectionPeakQ = false;
+        this.detectionPeakS = false;
         this.detectionOnEndT = false;
         this.detectionOnEndP = false;
         return true;
     }
 
-    judgePeakP() {
+    detectPeakP() {
         let windowBorder = [PSearchWindow[0], PSearchWindow[1]];
         
         let rrInterval = (windowBufferSize + this.posPeakR - this.prevPosPeakR) % windowBufferSize;
@@ -236,7 +265,7 @@ class EcgDelineator {
         }
     }
 
-    judgePeakT() {
+    detectPeakT() {
         let windowBorder = [TSearchWindow[0], TSearchWindow[1]];
         
         let rrInterval = (windowBufferSize + this.posPeakR - this.prevPosPeakR) % windowBufferSize;
