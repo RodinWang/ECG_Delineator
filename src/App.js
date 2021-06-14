@@ -56,7 +56,6 @@ class App extends React.Component {
     super(props);
     this.state = {
       ecgSignal: [],
-      baseLine: [],
       peakR: [],
       peakP: [],
       peakT: [],
@@ -98,7 +97,7 @@ class App extends React.Component {
   }
 
   handleEcgDraw() {
-    const { ecgSignal, baseLine, PeakR, PeakP, PeakT, onEndR, onEndP, onEndT, pPeakEnable, rPeakEnable, tPeakEnable, pOnEndEnable, rOnEndEnable, tOnEndEnable } = this.state;
+    const { ecgSignal, PeakR, PeakP, PeakT, onEndR, onEndP, onEndT, pPeakEnable, rPeakEnable, tPeakEnable, pOnEndEnable, rOnEndEnable, tOnEndEnable } = this.state;
 
 		if (this.dataIndex >= 9999) {
 			clearInterval(this.timerId);
@@ -142,11 +141,9 @@ class App extends React.Component {
       
 
       ecgSignal.push(ecg);
-      baseLine.push(this.ecgDelineator.getBaseline());
 			this.dataIndex = this.dataIndex + 1;
       this.setState({
         ecgSignal: ecgSignal.slice(),
-        baseLine: baseLine.slice(),
         PeakR: posPeakR,
         PeakP: posPeakP,
         PeakT: posPeakT,
@@ -290,24 +287,8 @@ class App extends React.Component {
   }
 
   render() {
-    let { ecgSignal, baseLine, PeakR, PeakP, PeakT, onEndR, onEndP, onEndT, pPeakEnable, rPeakEnable, tPeakEnable, pOnEndEnable, rOnEndEnable, tOnEndEnable } = this.state;
+    let { ecgSignal, PeakR, PeakP, PeakT, onEndR, onEndP, onEndT, pPeakEnable, rPeakEnable, tPeakEnable, pOnEndEnable, rOnEndEnable, tOnEndEnable } = this.state;
     let data = {
-      ECG: {
-        ecgSignal
-      },
-      Peak: {
-        PeakR,
-        PeakP,
-        PeakT,
-      },
-      onEnd: {
-        onEndR,
-        onEndP,
-        onEndT
-      }
-    }
-    ecgSignal = baseLine;
-    let data1 = {
       ECG: {
         ecgSignal
       },
@@ -327,7 +308,7 @@ class App extends React.Component {
       <div className="App">        
         <header className="App-header">
           <div className="container-fluid App-font">
-                      
+
             {/* Button */}
             <div className="row">
               <div className="col-sm-1">
@@ -452,11 +433,6 @@ class App extends React.Component {
             <div className="row">
               <div className="col-md-12 gy-3">
                 <ECGDiagram data={data}/>
-              </div>
-            </div>
-            <div className="row">
-              <div className="col-md-12 gy-3">
-                <ECGDiagram data={data1}/>
               </div>
             </div>
           </div>

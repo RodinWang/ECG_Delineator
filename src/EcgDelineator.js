@@ -340,15 +340,13 @@ class EcgDelineator {
      * @returns {number} ECG Value
      */
     getEcg40HzData() {
-        var index = (this.ecgBufferIndex - 1 + this.tBaseBuffer.length) % this.tBaseBuffer.length;
+        var index = (this.ecgBufferIndex - 1 + this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length;
         return this.ecg40HzBuffer[index];
     }
 
     getBaseline() {
-        if (this.ecgBufferIndex === 0)
-            return this.tBaseBuffer[this.ecg40HzBuffer.length - 1];
-        else
-            return this.tBaseBuffer[this.ecgBufferIndex - 1];
+        var index = (this.ecgBufferIndex - 1 + this.ecgBaseBuffer.length) % this.ecgBaseBuffer.length;
+        return this.ecgBaseBuffer[index];
 
     }
 
