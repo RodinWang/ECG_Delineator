@@ -298,7 +298,7 @@ class ECGDiagram extends React.Component{
 
     componentDidUpdate(prevProps) {
         // if props updated
-        if (this.props.data !== prevProps.data) {
+        if (this.props.data.ECG !== prevProps.data.ECG) {
             this.updateChart();
         }
         if (this.props.data.Peak.PeakR !== prevProps.data.Peak.PeakR) {

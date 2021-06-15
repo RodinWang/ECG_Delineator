@@ -3,7 +3,7 @@ import React from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min';
 import '@fortawesome/fontawesome-free/css/all.min.css'
-import { btConnect, btDisconnected, btGetDataArray } from './ble';
+import { btConnect, btDisconnected } from './ble';
 import ECGDiagram from './ECGDiagram'
 import { EcgDelineator } from './EcgDelineator'
 
@@ -48,13 +48,14 @@ function CSVToNumberArray( strData, strDelimiter ) {
 var fileEcgdata = [];
 
 class App extends React.Component {
-  timeID = 0;
+  timerId = 0;
   dataIndex = 0;
   ecgDelineator = undefined;
 
   constructor(props) {
     super(props);
     this.state = {
+      diagramUpdate: 0,
       ecgSignal: [],
       peakR: [],
       peakQ: [],
@@ -88,9 +89,17 @@ class App extends React.Component {
 				return (e) => {
 					let filedata = e.target.result;
 					fileEcgdata = CSVToNumberArray(filedata, ',').slice();
+          if (this.ecgDelineator !== undefined)
+            delete this.ecgDelineator;
           this.ecgDelineator = new EcgDelineator();
+          this.setState({
+            diagramUpdate: (this.state.diagramUpdate + 1) % 2,
+          });
           // set timer for 500Hz
-          this.timerId = setInterval(this.handleEcgDraw.bind(this), 2);
+          this.timerId = setInterval(()=> {
+            this.handleEcgDraw(fileEcgdata[0][this.dataIndex]);
+          }, 2);
+          this.dataIndex = 0;
 				};
 			})(f);
 			// read file
@@ -98,15 +107,16 @@ class App extends React.Component {
 		}
   }
 
-  handleEcgDraw() {
+  handleEcgDraw(inputValue) {
     const { ecgSignal, PeakR, PeakQ, PeakS, PeakP, PeakT, onEndR, onEndP, onEndT, pPeakEnable, rPeakEnable, tPeakEnable, pOnEndEnable, rOnEndEnable, tOnEndEnable } = this.state;
 
-		if (this.dataIndex >= 9999) {
+		if ((this.dataIndex >= 9999) && (this.timerId !== 0)) {
 			clearInterval(this.timerId);
+      this.timerId = 0;
       this.dataIndex = 0;
 		}
 		else {
-      this.ecgDelineator.pushEcgData(fileEcgdata[0][this.dataIndex]);
+      this.ecgDelineator.pushEcgData(inputValue);
       var ecg = this.ecgDelineator.getEcg40HzData();
 
       var posPeakR = PeakR;
@@ -177,14 +187,20 @@ class App extends React.Component {
   handleBTConnect() {
     if (this.ecgDelineator !== undefined) {
       delete this.ecgDelineator;
+      clearInterval(this.timerId);
+      this.timerId = 0;
+      this.dataIndex = 0;
     }
     this.ecgDelineator = new EcgDelineator();
-    btConnect();
+    this.setState({
+      diagramUpdate: (this.state.diagramUpdate + 1) % 2,
+    });
+    btConnect(this.handleEcgDraw.bind(this));
   }
 
   handleBTDisconnect() {
-    delete this.ecgDelineator;
     btDisconnected();
+    delete this.ecgDelineator;
   }
 
   // Save ECG Data
@@ -306,7 +322,7 @@ class App extends React.Component {
   }
 
   render() {
-    let { ecgSignal, PeakR, PeakQ, PeakS, PeakP, PeakT, onEndR, onEndP, onEndT, pPeakEnable, rPeakEnable, tPeakEnable, pOnEndEnable, rOnEndEnable, tOnEndEnable } = this.state;
+    let { diagramUpdate, ecgSignal, PeakR, PeakQ, PeakS, PeakP, PeakT, onEndR, onEndP, onEndT, pPeakEnable, rPeakEnable, tPeakEnable, pOnEndEnable, rOnEndEnable, tOnEndEnable } = this.state;
     let data = {
       ECG: {
         ecgSignal
@@ -453,7 +469,7 @@ class App extends React.Component {
             {/* ECG Diagram */}
             <div className="row">
               <div className="col-md-12 gy-3">
-                <ECGDiagram data={data}/>
+                <ECGDiagram key={diagramUpdate} data={data}/>
               </div>
             </div>
           </div>

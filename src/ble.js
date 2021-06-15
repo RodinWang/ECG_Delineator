@@ -1,15 +1,12 @@
 /**
  * This is the BLE function module.
  */
-
-var connected = false;
 var bluetoothDevice = null;
-var bleRxBuffer = [];
 
 /**
  * Connect with bluetooth device
  */
-function btConnect(){
+function btConnect(func){
     navigator.bluetooth.requestDevice({
         optionalServices: [0xa000],
         //'713d0002-503e-4c75-ba94-3148f18d941e'
@@ -32,28 +29,13 @@ function btConnect(){
         console.log(chara);
         chara.startNotifications().then(c => {
             c.addEventListener('characteristicvaluechanged', function(e){
-                bleRxBuffer.push(Array.from(new Uint8Array(this.value.buffer)));
-                //console.log(bleRxBuffer);
-                connected = true;
+                let ecgFromBLE = Array.from(new Uint8Array(this.value.buffer));
+                ecgFromBLE.forEach(func);
             });
         })
     })
     .catch(error => {console.log(error)});
 };
-
-/**
- * Get the Data Array received from BT device
- * @returns {number[]}Data array received from BT device.
- */
-function btGetDataArray() {
-    if (connected === true) {
-        let returnBuffer = bleRxBuffer.slice();
-        bleRxBuffer = [];
-        console.log(returnBuffer);
-        return returnBuffer;
-    }
-    return [];
-}
 
 /**
  * Disconnect with BT device.
@@ -62,7 +44,6 @@ function btGetDataArray() {
 function btDisconnected(event) {
     console.log("Disconnected by remote device!");
     bluetoothDevice = null;
-    connected = false;
 }
 
-export { btConnect, btDisconnected, btGetDataArray };
+export { btConnect, btDisconnected };

@@ -37,6 +37,10 @@ function pushDataLowPassFilter14Hz(inputValue) {
     return lowPassFirFilter14.singleStep(inputValue);
 }
 
+function resetLowPassFilter14Hz() {
+    lowPassFirFilter14 = new Fili.FirFilter(lowPassFir14Coeffs);
+}
+
 /**
  * This function can store the inputValue in a buffer 
  * and output the result of the 40Hz Low Pass FIR Filter.
@@ -47,4 +51,8 @@ function pushDataLowPassFilter40Hz(inputValue) {
     return lowPassFirFilter40.singleStep(inputValue);
 }
 
-export { pushDataLowPassFilter14Hz, pushDataLowPassFilter40Hz };
+function resetLowPassFilter40Hz() {
+    lowPassFirFilter40 = new Fili.FirFilter(lowPassFir40Coeffs);
+}
+
+export { pushDataLowPassFilter14Hz, pushDataLowPassFilter40Hz, resetLowPassFilter14Hz, resetLowPassFilter40Hz };

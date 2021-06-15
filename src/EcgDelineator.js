@@ -1,4 +1,4 @@
-import { pushDataLowPassFilter14Hz, pushDataLowPassFilter40Hz } from './LowPassFilter';
+import { pushDataLowPassFilter14Hz, pushDataLowPassFilter40Hz, resetLowPassFilter14Hz, resetLowPassFilter40Hz } from './LowPassFilter';
 import { FirstDerivativeFilter, SecondDerivativeFilter } from './DifferentialFilter';
 import { OpeningFilter, ClosingFilter } from './MorphologicalFilter';
 import { global } from './global';
@@ -57,6 +57,9 @@ class EcgDelineator {
         this.startupDelay = 0;
 
         this.onEndDetection = [];
+
+        resetLowPassFilter14Hz();
+        resetLowPassFilter40Hz();
 
         // filter
         this.firstDiffFilter = new FirstDerivativeFilter();
