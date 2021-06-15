@@ -142,9 +142,9 @@ class App extends React.Component {
           posPeakS = this.ecgDelineator.getPosPeakS();
       }
 
-      if (this.ecgDelineator.isOnEndRDetected()) {
+      if (this.ecgDelineator.isOnEndQRSDetected()) {
         if (rOnEndEnable)
-          posOnEndR = this.ecgDelineator.getPosOnEndR();
+          posOnEndR = this.ecgDelineator.getPosOnEndQRS();
       }
 
       if (this.ecgDelineator.isOnEndTDetected()) {

@@ -88,8 +88,8 @@ class EcgDelineator {
         this.detectionPeakP = false;
         this.posPeakT = 0;
         this.detectionPeakT = false;
-        this.posOnEndR = [0, 0];
-        this.detectionOnEndR = false;
+        this.posOnEndQRS = [0, 0];
+        this.detectionOnEndQRS = false;
         this.posOnEndP = [0, 0];
         this.detectionOnEndP = false;
         this.posOnEndT = [0, 0];
@@ -135,7 +135,7 @@ class EcgDelineator {
 
             this.detectPeakQ();
             this.detectPeakS();
-            this.detectOnEndR();
+            this.detectOnEndQRS();
         }
     }
 
@@ -147,12 +147,12 @@ class EcgDelineator {
         return this.posPeakR;
     }
 
-    isOnEndRDetected() {
-        return this.detectionOnEndR;
+    isOnEndQRSDetected() {
+        return this.detectionOnEndQRS;
     }
 
-    getPosOnEndR() {
-        return this.posOnEndR.slice();
+    getPosOnEndQRS() {
+        return this.posOnEndQRS.slice();
     }
 
     isPeakQDetected() {
@@ -233,7 +233,7 @@ class EcgDelineator {
         if ((detect < QRSFactor * this.avgQRS) && (Math.sign(this.secondDiffBuffer[this.ecgBufferIndex - 1] !== -1)))
             return false;
         
-        this.detectionOnEndR = false;
+        this.detectionOnEndQRS = false;
         this.detectionPeakQ = false;
         this.detectionPeakS = false;
         this.detectionOnEndT = false;
@@ -402,8 +402,148 @@ class EcgDelineator {
         }
     }
 
-    detectOnEndR() {
+    detectOnEndQRS() {
+        var rWindow1, rWindow2;
+        var ecgBaseWindow1, ecgBaseWindow2;
+        var i;
 
+        if (this.detectionPeakQ) {
+            let qSearchWindow;
+
+            // find window border
+            let windowBorder = [this.posPeakQ - Math.floor(0.02 * samplingFreq), this.posPeakQ];
+    
+            if (windowBorder[0] < 0)
+                windowBorder[0] = windowBorder[0] + this.ecg40HzBuffer.length;
+            
+            let indexBase = windowBorder[0];
+    
+            // Get Search Window Data
+            if (windowBorder[0] > windowBorder[1]) {
+                rWindow1 = this.ecg40HzBuffer.slice(windowBorder[0], this.ecg40HzBuffer.length);
+                rWindow2 = this.ecg40HzBuffer.slice(0, windowBorder[1]);
+                qSearchWindow = rWindow1.concat(rWindow2) ;
+            }
+            else {
+                qSearchWindow = this.ecg40HzBuffer.slice(windowBorder[0], windowBorder[1]);
+            }
+            this.posOnEndQRS[0] = indexBase + qSearchWindow.indexOf(Math.max(qSearchWindow));
+
+        }
+        else {
+            let rSearchWindow;
+            let ecgSearchWindow;
+            
+            // find window border
+            let windowBorder = [this.posPeakR - QSearchWindowSize, this.posPeakR];
+    
+            if (windowBorder[0] < 0)
+                windowBorder[0] = windowBorder[0] + this.ecg40HzBuffer.length;
+            
+            let indexBase = windowBorder[0];
+            
+            let ecgBaseWindowBorder = [ ( windowBorder[0] + ECGBaseDelay + this.ecgBaseBuffer.length) % this.ecgBaseBuffer.length,
+                                        ( windowBorder[1] + ECGBaseDelay + this.ecgBaseBuffer.length) % this.ecgBaseBuffer.length];
+    
+            // Get Search Window Data
+            if (windowBorder[0] > windowBorder[1]) {
+                rWindow1 = this.ecg40HzBuffer.slice(windowBorder[0], this.ecg40HzBuffer.length);
+                rWindow2 = this.ecg40HzBuffer.slice(0, windowBorder[1]);
+                rSearchWindow = rWindow1.concat(rWindow2) ;
+            }
+            else {
+                rSearchWindow = this.ecg40HzBuffer.slice(windowBorder[0], windowBorder[1]);
+            }
+    
+            if (ecgBaseWindowBorder[0] > ecgBaseWindowBorder[1]) {
+                ecgBaseWindow1 = this.ecgBaseBuffer.slice(ecgBaseWindowBorder[0], this.ecgBaseBuffer.length);
+                ecgBaseWindow2 = this.ecgBaseBuffer.slice(0, ecgBaseWindowBorder[1]);
+                ecgSearchWindow = ecgBaseWindow1.concat(ecgBaseWindow2) ;
+            }
+            else {
+                ecgSearchWindow = this.ecgBaseBuffer.slice(ecgBaseWindowBorder[0], ecgBaseWindowBorder[1]);
+            }
+            // find  Peak R on-set
+            let diffWindow = diffNumber(rSearchWindow, ecgSearchWindow);
+            for (i = diffWindow.length - 1; i >= 0; i--) {
+                if (diffWindow[i] <= (0.05 * diffWindow[diffWindow.length-1])) {
+                    this.posOnEndQRS[0] = indexBase + i + 1;
+                    break;
+                }
+            }
+        }
+
+
+        if (this.detectionPeakS) {
+            let sSearchWindow;
+            
+            // find window border
+            let windowBorder = [this.posPeakS, this.posPeakS + Math.floor(0.02 * samplingFreq)];
+    
+            if (windowBorder[1] > this.ecg40HzBuffer.length)
+                windowBorder[1] = windowBorder[1] - this.ecg40HzBuffer.length;
+            
+            let indexBase = windowBorder[0];
+            
+    
+            // Get Search Window Data
+            if (windowBorder[0] > windowBorder[1]) {
+                rWindow1 = this.ecg40HzBuffer.slice(windowBorder[0], this.ecg40HzBuffer.length);
+                rWindow2 = this.ecg40HzBuffer.slice(0, windowBorder[1]);
+                sSearchWindow = rWindow1.concat(rWindow2) ;
+            }
+            else {
+                sSearchWindow = this.ecg40HzBuffer.slice(windowBorder[0], windowBorder[1]);
+            }
+
+            this.posOnEndQRS[1] = indexBase + sSearchWindow.indexOf(Math.max(sSearchWindow));
+
+        }
+        else {
+            let rSearchWindow;
+            let ecgSearchWindow;
+            
+            // find window border
+            let windowBorder = [this.posPeakR, this.posPeakR + SSearchWindowSize];
+    
+            if (windowBorder[1] > this.ecg40HzBuffer.length)
+                windowBorder[1] = windowBorder[1] - this.ecg40HzBuffer.length;
+            
+            let indexBase = windowBorder[0];
+            
+            let ecgBaseWindowBorder = [ ( windowBorder[0] + ECGBaseDelay + this.ecgBaseBuffer.length) % this.ecgBaseBuffer.length,
+                                        ( windowBorder[1] + ECGBaseDelay + this.ecgBaseBuffer.length) % this.ecgBaseBuffer.length];
+    
+            // Get Search Window Data
+            if (windowBorder[0] > windowBorder[1]) {
+                rWindow1 = this.ecg40HzBuffer.slice(windowBorder[0], this.ecg40HzBuffer.length);
+                rWindow2 = this.ecg40HzBuffer.slice(0, windowBorder[1]);
+                rSearchWindow = rWindow1.concat(rWindow2) ;
+            }
+            else {
+                rSearchWindow = this.ecg40HzBuffer.slice(windowBorder[0], windowBorder[1]);
+            }
+    
+            if (ecgBaseWindowBorder[0] > ecgBaseWindowBorder[1]) {
+                ecgBaseWindow1 = this.ecgBaseBuffer.slice(ecgBaseWindowBorder[0], this.ecgBaseBuffer.length);
+                ecgBaseWindow2 = this.ecgBaseBuffer.slice(0, ecgBaseWindowBorder[1]);
+                ecgSearchWindow = ecgBaseWindow1.concat(ecgBaseWindow2) ;
+            }
+            else {
+                ecgSearchWindow = this.ecgBaseBuffer.slice(ecgBaseWindowBorder[0], ecgBaseWindowBorder[1]);
+            }
+            
+            // find R On-End
+            let diffWindow = diffNumber(rSearchWindow, ecgSearchWindow);
+            for (i = 0; i < diffWindow.length; i++) {
+                if (diffWindow[i] <= (0.05 * diffWindow[0])) {
+                    this.posOnEndQRS[1] = indexBase + i + 4;
+                    break;
+                }
+            }
+        }
+
+        this.detectionOnEndQRS = true;
     }
 
     detectOnEndP() {
