@@ -6,7 +6,7 @@ import { global } from './global';
 const samplingFreq = global.samplingFreq;
 const windowLength = 2
 const windowBufferSize = samplingFreq * windowLength;
-const QRSFactor = 0.45;
+const QRSFactor = 0.4;
 const PFactor = 0.01;
 const TFactor = 0.01;
 const QSearchWindowSize = 0.1 * samplingFreq;
@@ -234,6 +234,9 @@ class EcgDelineator {
         // 2nd Diff 
         let detect = Math.abs(this.secondDiffBuffer[this.ecgBufferIndex - 1]);
         if ((detect < QRSFactor * this.avgQRS) && (Math.sign(this.secondDiffBuffer[this.ecgBufferIndex - 1] !== -1)))
+            return false;
+        
+        if ((this.ecgBufferIndex - this.prevPosPeakR) < 0.25 * samplingFreq)
             return false;
         
         this.detectionOnEndQRS = false;

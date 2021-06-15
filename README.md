@@ -7,8 +7,10 @@ This project implements the algorithm in [A Modular Low-Complexity ECG Delineati
 ## Feature
 
 1. Web UI implement with React.js.
-2. Use Trianswer for ECG signal.
-3. Use BLE to communication.
+2. Use Trianswer or File for ECG signal.
+3. Trianswer uses BLE to communication.
+
+![File ECG Demo](/demo/File_ECG_Demo.gif)
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
