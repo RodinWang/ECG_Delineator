@@ -107,7 +107,7 @@ class ECGDiagram extends React.Component{
         const ctx2 = c2.getContext("2d");
         
         var originFillStyle = ctx2.fillStyle;
-        var x_value = (this.drawPointsIndex - SECOND_DIFF_DELAY) * (c2.width / (this.sampleFreq * this.frameLength));
+        var x_value = (this.drawPointsIndex + 1 - SECOND_DIFF_DELAY) * (c2.width / (this.sampleFreq * this.frameLength));
         ctx2.fillStyle = R_COLOR;
         ctx2.beginPath();
         ctx2.arc(x_value.toFixed(2) , this.data[this.drawPointsIndex-SECOND_DIFF_DELAY], 4, 0, Math.PI*2, true);

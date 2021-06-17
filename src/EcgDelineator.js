@@ -152,7 +152,7 @@ class EcgDelineator {
     }
 
     getPosPeakR() {
-        return this.posPeakR;
+        return this.posPeakR + 1;
     }
 
     isOnEndQRSDetected() {
@@ -440,7 +440,7 @@ class EcgDelineator {
             else {
                 qSearchWindow = this.ecg40HzBuffer.slice(windowBorder[0], windowBorder[1]);
             }
-            this.posOnEndQRS[0] = indexBase + qSearchWindow.indexOf(Math.max(qSearchWindow));
+            this.posOnEndQRS[0] = (indexBase + qSearchWindow.indexOf(Math.max(...qSearchWindow))) % this.ecg40HzBuffer.length;
 
         }
         else {
@@ -480,7 +480,7 @@ class EcgDelineator {
             let diffWindow = diffNumber(rSearchWindow, ecgSearchWindow);
             for (i = diffWindow.length - 1; i >= 0; i--) {
                 if (diffWindow[i] <= (0.05 * diffWindow[diffWindow.length-1])) {
-                    this.posOnEndQRS[0] = indexBase + i + 1;
+                    this.posOnEndQRS[0] = (indexBase + i + 1) % this.ecg40HzBuffer.length;
                     break;
                 }
             }
@@ -503,13 +503,13 @@ class EcgDelineator {
             if (windowBorder[0] > windowBorder[1]) {
                 rWindow1 = this.ecg40HzBuffer.slice(windowBorder[0], this.ecg40HzBuffer.length);
                 rWindow2 = this.ecg40HzBuffer.slice(0, windowBorder[1]);
-                sSearchWindow = rWindow1.concat(rWindow2) ;
+                sSearchWindow = rWindow1.concat(rWindow2);
             }
             else {
                 sSearchWindow = this.ecg40HzBuffer.slice(windowBorder[0], windowBorder[1]);
             }
 
-            this.posOnEndQRS[1] = indexBase + sSearchWindow.indexOf(Math.max(sSearchWindow));
+            this.posOnEndQRS[1] = (indexBase + sSearchWindow.indexOf(Math.max(...sSearchWindow))) % this.ecg40HzBuffer.length;
 
         }
         else {
@@ -550,7 +550,7 @@ class EcgDelineator {
             let diffWindow = diffNumber(rSearchWindow, ecgSearchWindow);
             for (i = 0; i < diffWindow.length; i++) {
                 if (diffWindow[i] <= (0.05 * diffWindow[0])) {
-                    this.posOnEndQRS[1] = indexBase + i + 4;
+                    this.posOnEndQRS[1] = (indexBase + i + 4) % this.ecg40HzBuffer.length;
                     break;
                 }
             }
