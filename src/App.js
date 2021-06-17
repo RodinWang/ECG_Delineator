@@ -200,7 +200,6 @@ class App extends React.Component {
 
   handleBTDisconnect() {
     btDisconnected();
-    delete this.ecgDelineator;
   }
 
   // Save ECG Data

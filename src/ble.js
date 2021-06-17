@@ -8,7 +8,6 @@ var bluetoothDevice = null;
  */
 function btConnect(func){
     navigator.bluetooth.requestDevice({
-        optionalServices: [0xa000],
         //'713d0002-503e-4c75-ba94-3148f18d941e'
         acceptAllDevices: true//
     })
@@ -19,11 +18,12 @@ function btConnect(func){
         return device.gatt.connect();
     })
     .then(server => {
-        return server.getPrimaryService(0xa000);
+        console.log(server);
+        return server.getPrimaryService(0xFF05);
     })
     .then(service => {
         console.log(service);
-        return service.getCharacteristic(0xa001);
+        return service.getCharacteristic(0xAA05);
     })
     .then(chara => {
         console.log(chara);
@@ -43,6 +43,12 @@ function btConnect(func){
  */
 function btDisconnected(event) {
     console.log("Disconnected by remote device!");
+    if (!bluetoothDevice) {
+        return;
+    }
+    if (bluetoothDevice.gatt.connected) {
+        bluetoothDevice.gatt.disconnect();
+    }
     bluetoothDevice = null;
 }
 
