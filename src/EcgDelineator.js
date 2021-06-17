@@ -6,7 +6,7 @@ import { global } from './global';
 const samplingFreq = global.samplingFreq;
 const windowLength = 2
 const windowBufferSize = samplingFreq * windowLength;
-const QRSFactor = 0.4;
+const QRSFactor = 0.5;
 const PFactor = 0.01;
 const TFactor = 0.01;
 const QSearchWindowSize = 0.1 * samplingFreq;
@@ -20,6 +20,7 @@ const TBaseFilterSize = 0.2 * samplingFreq;
 const ECGBaseDelay = (ECGBaseOpeningFilterSize + ECGBaseClosingFilterSize);
 const PBaseDelay = (PBaseFilterSize);
 const TBaseDelay = (TBaseFilterSize);
+const RRIntervalLimited = (0.25 * samplingFreq);
 
 function SumOfArray(arr){
     return arr.reduce((a,b)=>a+b);  
@@ -50,10 +51,10 @@ class EcgDelineator {
     constructor() {
 
         // avgerage QRS
-        this.avgQRSBuffer = [1, 1, 1, 1, 1];
+        this.avgQRSBuffer = [0.5, 0.5, 0.5, 0.5];
         this.avgQRS = SumOfArray(this.avgQRSBuffer) / this.avgQRSBuffer.length;
 
-        // Delay 1 Buffer frame
+        // Delay 2 Buffer frame
         this.startupDelay = 0;
 
         this.onEndDetection = [];
@@ -114,31 +115,35 @@ class EcgDelineator {
         if (this.ecgBufferIndex >=  windowBufferSize) {
             this.updateAvgQRS(Math.max.apply(null, this.secondDiffBuffer.map(Math.abs)));
             this.ecgBufferIndex = 0;
+            if (this.startupDelay < 2)
+                this.startupDelay++;
         }
 
-        this.detectionPeakR = this.detectPeakR();
-        if (this.detectionPeakR === true) {
-            this.prevPosPeakR = this.posPeakR;
-            this.posPeakR = this.ecgBufferIndex;
-            this.onEndDetection.push((this.posPeakR + ECGBaseDelay + SSearchWindowSize) % this.ecg40HzBuffer.length);
-            this.detectPeakP();
-            this.detectPeakT();
-        }
-
-        // On-End
-        if (this.onEndDetection[0] === this.ecgBufferIndex) {
-            this.onEndDetection.shift();
-            if (this.detectionPeakP) {
-                this.detectOnEndP();
+        if (this.startupDelay >= 2) {
+            this.detectionPeakR = this.detectPeakR();
+            if (this.detectionPeakR === true) {
+                this.prevPosPeakR = this.posPeakR;
+                this.posPeakR = this.ecgBufferIndex;
+                this.onEndDetection.push((this.posPeakR + ECGBaseDelay + SSearchWindowSize) % this.ecg40HzBuffer.length);
+                this.detectPeakP();
+                this.detectPeakT();
             }
 
-            if (this.detectionPeakT) {
-                this.detectOnEndT();
-            }
+            // On-End
+            if (this.onEndDetection[0] === this.ecgBufferIndex) {
+                this.onEndDetection.shift();
+                if (this.detectionPeakP) {
+                    this.detectOnEndP();
+                }
 
-            this.detectPeakQ();
-            this.detectPeakS();
-            this.detectOnEndQRS();
+                if (this.detectionPeakT) {
+                    this.detectOnEndT();
+                }
+
+                this.detectPeakQ();
+                this.detectPeakS();
+                this.detectOnEndQRS();
+            }
         }
     }
 
@@ -218,6 +223,7 @@ class EcgDelineator {
 
     detectPeakR() {
         // 1st Diff sign changed?
+        
         if (this.ecgBufferIndex === 0) {
             if (this.getSignOfFirstDiff(windowBufferSize - 2) === this.getSignOfFirstDiff(windowBufferSize - 1))
                 return false;
@@ -230,15 +236,16 @@ class EcgDelineator {
             if (this.getSignOfFirstDiff(this.ecgBufferIndex - 2) === this.getSignOfFirstDiff(this.ecgBufferIndex - 1))
                 return false;
         }
-
+        
         // 2nd Diff 
         let detect = Math.abs(this.secondDiffBuffer[this.ecgBufferIndex - 1]);
-        if ((detect < QRSFactor * this.avgQRS) && (Math.sign(this.secondDiffBuffer[this.ecgBufferIndex - 1] !== -1)))
+        if ((detect < (QRSFactor * this.avgQRS)) && (Math.sign(this.secondDiffBuffer[this.ecgBufferIndex - 1] !== -1)))
             return false;
-        
-        if ((this.ecgBufferIndex - this.prevPosPeakR) < 0.25 * samplingFreq)
+            
+        var RR = (this.ecgBufferIndex - this.posPeakR + this.secondDiffBuffer.length) % this.secondDiffBuffer.length;
+        if ((RR) < RRIntervalLimited )
             return false;
-        
+
         this.detectionOnEndQRS = false;
         this.detectionPeakQ = false;
         this.detectionPeakS = false;
@@ -367,7 +374,7 @@ class EcgDelineator {
 
         // Find Max Value
         let maxValue = Math.max.apply(null, searchWindow.map(Math.abs));
-        if (maxValue >= PFactor * this.avgQRS) {
+        if (maxValue >= (PFactor * this.avgQRS)) {
             this.detectionPeakP = true;
             this.posPeakP = (indexBase + indexOfAbsMax(searchWindow)) % this.secondDiffBuffer.length;
         }
@@ -402,7 +409,7 @@ class EcgDelineator {
 
         // Find Max Value
         let maxValue = Math.max.apply(null, searchWindow.map(Math.abs));
-        if (maxValue >= TFactor * this.avgQRS) {
+        if (maxValue >= (TFactor * this.avgQRS)) {
             this.detectionPeakT = true;
             this.posPeakT = (indexBase + indexOfAbsMax(searchWindow)) % this.secondDiffBuffer.length;
         }
