@@ -21,6 +21,8 @@ const ECGBaseDelay = (ECGBaseOpeningFilterSize + ECGBaseClosingFilterSize);
 const PBaseDelay = (PBaseFilterSize);
 const TBaseDelay = (TBaseFilterSize);
 const RRIntervalLimited = (0.25 * samplingFreq);
+const PWaveLength = (0.12 * samplingFreq);
+const TWaveLength = (0.2 * samplingFreq);
 
 function SumOfArray(arr){
     return arr.reduce((a,b)=>a+b);  
@@ -44,6 +46,14 @@ function indexOfAbsMax(arr) {
     }
 
     return maxIndex;
+}
+
+function getAllIndexes(arr, val) {
+    var indexes = [], i;
+    for(i = 0; i < arr.length; i++)
+        if (arr[i] === val)
+            indexes.push(i);
+    return indexes;
 }
 
 class EcgDelineator {
@@ -480,7 +490,7 @@ class EcgDelineator {
             let diffWindow = diffNumber(rSearchWindow, ecgSearchWindow);
             for (i = diffWindow.length - 1; i >= 0; i--) {
                 if (diffWindow[i] <= (0.05 * diffWindow[diffWindow.length-1])) {
-                    this.posOnEndQRS[0] = (indexBase + i + 1) % this.ecg40HzBuffer.length;
+                    this.posOnEndQRS[0] = (indexBase + i) % this.ecg40HzBuffer.length;
                     break;
                 }
             }
@@ -550,7 +560,7 @@ class EcgDelineator {
             let diffWindow = diffNumber(rSearchWindow, ecgSearchWindow);
             for (i = 0; i < diffWindow.length; i++) {
                 if (diffWindow[i] <= (0.05 * diffWindow[0])) {
-                    this.posOnEndQRS[1] = (indexBase + i + 4) % this.ecg40HzBuffer.length;
+                    this.posOnEndQRS[1] = (indexBase + i) % this.ecg40HzBuffer.length;
                     break;
                 }
             }
@@ -560,59 +570,157 @@ class EcgDelineator {
     }
 
     detectOnEndP() {
-        var pIndex = this.posPeakP - 5;
-        var peakDiff = this.ecg40HzBuffer[pIndex] - this.pBaseBuffer[(pIndex + PBaseDelay) % this.pBaseBuffer.length];
-        var diffValue1 = this.ecg40HzBuffer[pIndex] - this.pBaseBuffer[(pIndex + PBaseDelay)  % this.pBaseBuffer.length];
-        var diffValue2 = this.ecg40HzBuffer[(pIndex - 1 + this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length]
-                        - this.pBaseBuffer[(pIndex - 1 + PBaseDelay + this.pBaseBuffer.length) % this.pBaseBuffer.length];
-        while ((diffValue1 >= diffValue2) && (diffValue1 >= (0.0025 * peakDiff))) {
-            pIndex = (pIndex-1+this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length;
-            diffValue1 = this.ecg40HzBuffer[pIndex] - this.pBaseBuffer[(pIndex + PBaseDelay) % this.pBaseBuffer.length];
-            diffValue2 = this.ecg40HzBuffer[(pIndex - 1 + this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length]
-                        - this.pBaseBuffer[(pIndex-1 + PBaseDelay + this.pBaseBuffer.length) % this.pBaseBuffer.length];
-        }
-        this.posOnEndP[0] = pIndex;
+        let pSearchWindow;
+        let baseSearchWindow;
+        
+        // find window border
+        let windowBorder = [this.posPeakP - Math.floor(PWaveLength/2), this.posPeakP];
 
-        pIndex = this.posPeakP + 5;
-        diffValue1 = this.ecg40HzBuffer[pIndex] - this.pBaseBuffer[(pIndex + PBaseDelay)  % this.pBaseBuffer.length];
-        diffValue2 = this.ecg40HzBuffer[(pIndex + 1 + this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length]
-                        - this.pBaseBuffer[(pIndex+1 + PBaseDelay + this.pBaseBuffer.length)% this.pBaseBuffer.length];
-        while ((diffValue1 >= diffValue2) && (diffValue1 >= (0.0025 * peakDiff))) {
-            pIndex = (pIndex + 1 + this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length;
-            diffValue1 = this.ecg40HzBuffer[pIndex] - this.pBaseBuffer[(pIndex + PBaseDelay) % this.pBaseBuffer.length];
-            diffValue2 = this.ecg40HzBuffer[(pIndex + 1 + this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length]
-                        - this.pBaseBuffer[(pIndex + 1 + PBaseDelay + this.pBaseBuffer.length) % this.pBaseBuffer.length];
+        if (windowBorder[0] < 0)
+            windowBorder[0] = windowBorder[0] + this.ecg40HzBuffer.length;
+        
+        let indexBase = windowBorder[0];
+        
+        let pBaseWindowBorder = [ ( windowBorder[0] + PBaseDelay + this.pBaseBuffer.length) % this.pBaseBuffer.length,
+                                    ( windowBorder[1] + PBaseDelay + this.pBaseBuffer.length) % this.pBaseBuffer.length];
+
+        // Get Search Window Data
+        if (windowBorder[0] > windowBorder[1]) {
+            var pWindow1 = this.ecg40HzBuffer.slice(windowBorder[0], this.ecg40HzBuffer.length);
+            var pWindow2 = this.ecg40HzBuffer.slice(0, windowBorder[1]);
+            pSearchWindow = pWindow1.concat(pWindow2) ;
         }
-        this.posOnEndP[1] = pIndex;
+        else {
+            pSearchWindow = this.ecg40HzBuffer.slice(windowBorder[0], windowBorder[1]);
+        }
+
+        if (pBaseWindowBorder[0] > pBaseWindowBorder[1]) {
+            var pBaseWindow1 = this.pBaseBuffer.slice(pBaseWindowBorder[0], this.pBaseBuffer.length);
+            var pBaseWindow2 = this.pBaseBuffer.slice(0, pBaseWindowBorder[1]);
+            baseSearchWindow = pBaseWindow1.concat(pBaseWindow2) ;
+        }
+        else {
+            baseSearchWindow = this.pBaseBuffer.slice(pBaseWindowBorder[0], pBaseWindowBorder[1]);
+        }
+        
+        // find P On-Set
+        let diffWindow = diffNumber(pSearchWindow, baseSearchWindow);
+
+        let minValue = Math.min(...diffWindow);
+        let indexes = getAllIndexes(diffWindow, minValue);
+        this.posOnEndP[0] = (indexBase + indexes[indexes.length-1]) % this.ecg40HzBuffer.length;
+
+        // find window border
+        windowBorder = [this.posPeakP, (this.posPeakP + Math.floor(PWaveLength/2)) % this.ecg40HzBuffer.length];
+        
+        indexBase = windowBorder[0];
+        
+        pBaseWindowBorder = [ ( windowBorder[0] + PBaseDelay + this.pBaseBuffer.length) % this.pBaseBuffer.length,
+                              ( windowBorder[1] + PBaseDelay + this.pBaseBuffer.length) % this.pBaseBuffer.length];
+
+        // Get Search Window Data
+        if (windowBorder[0] > windowBorder[1]) {
+            pWindow1 = this.ecg40HzBuffer.slice(windowBorder[0], this.ecg40HzBuffer.length);
+            pWindow2 = this.ecg40HzBuffer.slice(0, windowBorder[1]);
+            pSearchWindow = pWindow1.concat(pWindow2) ;
+        }
+        else {
+            pSearchWindow = this.ecg40HzBuffer.slice(windowBorder[0], windowBorder[1]);
+        }
+
+        if (pBaseWindowBorder[0] > pBaseWindowBorder[1]) {
+            pBaseWindow1 = this.pBaseBuffer.slice(pBaseWindowBorder[0], this.pBaseBuffer.length);
+            pBaseWindow2 = this.pBaseBuffer.slice(0, pBaseWindowBorder[1]);
+            baseSearchWindow = pBaseWindow1.concat(pBaseWindow2) ;
+        }
+        else {
+            baseSearchWindow = this.pBaseBuffer.slice(pBaseWindowBorder[0], pBaseWindowBorder[1]);
+        }
+        
+        // find P On-Set
+        diffWindow = diffNumber(pSearchWindow, baseSearchWindow);
+
+        minValue = Math.min(...diffWindow);
+        indexes = getAllIndexes(diffWindow, minValue);
+        this.posOnEndP[1] = (indexBase + indexes[0]) % this.ecg40HzBuffer.length;
 
         this.detectionOnEndP = true;
     }
 
     detectOnEndT() {
-        var pIndex = this.posPeakT - 5;
-        var peakDiff = this.ecg40HzBuffer[pIndex] - this.tBaseBuffer[(pIndex + TBaseDelay) % this.tBaseBuffer.length];
-        var diffValue1 = this.ecg40HzBuffer[pIndex] - this.tBaseBuffer[(pIndex + TBaseDelay)  % this.tBaseBuffer.length];
-        var diffValue2 = this.ecg40HzBuffer[(pIndex - 1 + this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length]
-                        - this.tBaseBuffer[(pIndex - 1 + TBaseDelay + this.tBaseBuffer.length) % this.tBaseBuffer.length];
-        while ((diffValue1 >= diffValue2) && (diffValue1 > (0.0025 * peakDiff))) {
-            pIndex = (pIndex-1+this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length;
-            diffValue1 = this.ecg40HzBuffer[pIndex] - this.tBaseBuffer[(pIndex + TBaseDelay) % this.tBaseBuffer.length];
-            diffValue2 = this.ecg40HzBuffer[(pIndex - 1 + this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length]
-                        - this.tBaseBuffer[(pIndex-1 + TBaseDelay + this.tBaseBuffer.length) % this.tBaseBuffer.length];
-        }
-        this.posOnEndT[0] = pIndex;
+        let tSearchWindow;
+        let baseSearchWindow;
+        
+        // find window border
+        let windowBorder = [this.posPeakT - Math.floor(TWaveLength/2), this.posPeakT];
 
-        pIndex = this.posPeakT + 5;
-        diffValue1 = this.ecg40HzBuffer[pIndex] - this.tBaseBuffer[(pIndex + TBaseDelay)  % this.tBaseBuffer.length];
-        diffValue2 = this.ecg40HzBuffer[(pIndex + 1 + this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length]
-                        - this.tBaseBuffer[(pIndex+1 + TBaseDelay + this.tBaseBuffer.length)% this.tBaseBuffer.length];
-        while ((diffValue1 >= diffValue2) && (diffValue1 > (0.0025 * peakDiff))) {
-            pIndex = (pIndex + 1 + this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length;
-            diffValue1 = this.ecg40HzBuffer[pIndex] - this.tBaseBuffer[(pIndex + TBaseDelay) % this.tBaseBuffer.length];
-            diffValue2 = this.ecg40HzBuffer[(pIndex + 1 + this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length]
-                        - this.tBaseBuffer[(pIndex + 1 + TBaseDelay + this.tBaseBuffer.length) % this.tBaseBuffer.length];
+        if (windowBorder[0] < 0)
+            windowBorder[0] = windowBorder[0] + this.ecg40HzBuffer.length;
+        
+        let indexBase = windowBorder[0];
+        
+        let tBaseWindowBorder = [ ( windowBorder[0] + TBaseDelay + this.tBaseBuffer.length) % this.tBaseBuffer.length,
+                                  ( windowBorder[1] + TBaseDelay + this.tBaseBuffer.length) % this.tBaseBuffer.length];
+
+        // Get Search Window Data
+        if (windowBorder[0] > windowBorder[1]) {
+            var tWindow1 = this.ecg40HzBuffer.slice(windowBorder[0], this.ecg40HzBuffer.length);
+            var tWindow2 = this.ecg40HzBuffer.slice(0, windowBorder[1]);
+            tSearchWindow = tWindow1.concat(tWindow2) ;
         }
-        this.posOnEndT[1] = pIndex;
+        else {
+            tSearchWindow = this.ecg40HzBuffer.slice(windowBorder[0], windowBorder[1]);
+        }
+
+        if (tBaseWindowBorder[0] > tBaseWindowBorder[1]) {
+            var tBaseWindow1 = this.tBaseBuffer.slice(tBaseWindowBorder[0], this.tBaseBuffer.length);
+            var tBaseWindow2 = this.tBaseBuffer.slice(0, tBaseWindowBorder[1]);
+            baseSearchWindow = tBaseWindow1.concat(tBaseWindow2) ;
+        }
+        else {
+            baseSearchWindow = this.tBaseBuffer.slice(tBaseWindowBorder[0], tBaseWindowBorder[1]);
+        }
+        
+        // find T On-Set
+        let diffWindow = diffNumber(tSearchWindow, baseSearchWindow);
+
+        let minValue = Math.min(...diffWindow);
+        let indexes = getAllIndexes(diffWindow, minValue);
+        this.posOnEndT[0] = (indexBase + indexes[indexes.length-1]) % this.ecg40HzBuffer.length;
+
+        // find window border
+        windowBorder = [this.posPeakT, (this.posPeakT + Math.floor(TWaveLength/2)) % this.ecg40HzBuffer.length];
+        
+        indexBase = windowBorder[0];
+        
+        tBaseWindowBorder = [ ( windowBorder[0] + TBaseDelay + this.tBaseBuffer.length) % this.tBaseBuffer.length,
+                              ( windowBorder[1] + TBaseDelay + this.tBaseBuffer.length) % this.tBaseBuffer.length];
+
+        // Get Search Window Data
+        if (windowBorder[0] > windowBorder[1]) {
+            tWindow1 = this.ecg40HzBuffer.slice(windowBorder[0], this.ecg40HzBuffer.length);
+            tWindow2 = this.ecg40HzBuffer.slice(0, windowBorder[1]);
+            tSearchWindow = tWindow1.concat(tWindow2) ;
+        }
+        else {
+            tSearchWindow = this.ecg40HzBuffer.slice(windowBorder[0], windowBorder[1]);
+        }
+
+        if (tBaseWindowBorder[0] > tBaseWindowBorder[1]) {
+            tBaseWindow1 = this.tBaseBuffer.slice(tBaseWindowBorder[0], this.tBaseBuffer.length);
+            tBaseWindow2 = this.tBaseBuffer.slice(0, tBaseWindowBorder[1]);
+            baseSearchWindow = tBaseWindow1.concat(tBaseWindow2) ;
+        }
+        else {
+            baseSearchWindow = this.tBaseBuffer.slice(tBaseWindowBorder[0], tBaseWindowBorder[1]);
+        }
+        
+        // find P On-Set
+        diffWindow = diffNumber(tSearchWindow, baseSearchWindow);
+
+        minValue = Math.min(...diffWindow);
+        indexes = getAllIndexes(diffWindow, minValue);
+        this.posOnEndT[1] = (indexBase + indexes[0]) % this.ecg40HzBuffer.length;
 
         this.detectionOnEndT = true;
     }
