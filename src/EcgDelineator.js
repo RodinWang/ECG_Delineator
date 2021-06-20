@@ -157,6 +157,10 @@ class EcgDelineator {
         }
     }
 
+    getRRInterval() {
+        return (this.posPeakR - this.prevPosPeakR + this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length;
+    }
+
     isPeakRDetected() {
         return this.detectionPeakR;
     }

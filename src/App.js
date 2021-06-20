@@ -6,6 +6,7 @@ import '@fortawesome/fontawesome-free/css/all.min.css'
 import { btConnect, btDisconnected } from './ble';
 import ECGDiagram from './ECGDiagram'
 import { EcgDelineator } from './EcgDelineator'
+import { global } from './global';
 
 // convert CSV to number array
 function CSVToNumberArray( strData, strDelimiter ) {
@@ -45,6 +46,10 @@ function CSVToNumberArray( strData, strDelimiter ) {
   return( arrData );
 }
 
+function SumArray(arr){
+  return arr.reduce((a,b)=>a+b);  
+}
+
 var fileEcgdata = [];
 
 class App extends React.Component {
@@ -57,6 +62,7 @@ class App extends React.Component {
     this.state = {
       diagramUpdate: 0,
       ecgSignal: [],
+      rrInterval: [],
       peakR: 0,
       peakQ: 0,
       PeakS: 0,
@@ -108,7 +114,7 @@ class App extends React.Component {
   }
 
   handleEcgDraw(inputValue) {
-    const { ecgSignal, PeakR, PeakQ, PeakS, PeakP, PeakT, onEndR, onEndP, onEndT, pPeakEnable, rPeakEnable, tPeakEnable, pOnEndEnable, rOnEndEnable, tOnEndEnable } = this.state;
+    const { ecgSignal, rrInterval, PeakR, PeakQ, PeakS, PeakP, PeakT, onEndR, onEndP, onEndT, pPeakEnable, rPeakEnable, tPeakEnable, pOnEndEnable, rOnEndEnable, tOnEndEnable } = this.state;
 
 		if ((this.dataIndex >= 9999) && (this.timerId !== 0)) {
 			clearInterval(this.timerId);
@@ -127,7 +133,13 @@ class App extends React.Component {
       var posOnEndR = onEndR;
       var posOnEndP = onEndP;
       var posOnEndT = onEndT;
+      var RR = rrInterval;
       if (this.ecgDelineator.isPeakRDetected()) {
+        let currentRR = (this.ecgDelineator.getRRInterval() / global.samplingFreq) * 1000;
+        if (RR.length >= 8) {
+          RR.shift();
+        }
+        RR.push(currentRR);
         if (rPeakEnable)
           posPeakR = this.ecgDelineator.getPosPeakR();
 
@@ -171,6 +183,7 @@ class App extends React.Component {
 			this.dataIndex = this.dataIndex + 1;
       this.setState({
         ecgSignal: ecgSignal.slice(),
+        rrInterval: RR,
         PeakR: posPeakR,
         PeakQ: posPeakQ,
         PeakS: posPeakS,
@@ -321,7 +334,7 @@ class App extends React.Component {
   }
 
   render() {
-    let { diagramUpdate, ecgSignal, PeakR, PeakQ, PeakS, PeakP, PeakT, onEndR, onEndP, onEndT, pPeakEnable, rPeakEnable, tPeakEnable, pOnEndEnable, rOnEndEnable, tOnEndEnable } = this.state;
+    let { diagramUpdate, ecgSignal, rrInterval, PeakR, PeakQ, PeakS, PeakP, PeakT, onEndR, onEndP, onEndT, pPeakEnable, rPeakEnable, tPeakEnable, pOnEndEnable, rOnEndEnable, tOnEndEnable } = this.state;
     let data = {
       ECG: {
         ecgSignal
@@ -338,6 +351,16 @@ class App extends React.Component {
         onEndP,
         onEndT
       }
+    }
+    var rrDisplay = "";
+    var heartRate = "";
+    if (rrInterval.length >= 8) {
+      rrDisplay = rrInterval[7];
+      heartRate =  ((1 / (SumArray(rrInterval) / 8)) * 60 * 1000).toFixed(2);
+    }
+    else if (rrInterval.length > 0){
+      rrDisplay = (rrInterval[(rrInterval.length-1)]);
+      heartRate =  ((1 / (SumArray(rrInterval) / rrInterval.length)) * 60 * 1000).toFixed(2);
     }
 
     return (
@@ -457,7 +480,8 @@ class App extends React.Component {
                     Current Status
                   </label>
                   <div className="card-body">
-                    
+                    <label className="col-sm-12 col-form-label">Heart Rate: {heartRate} BPM</label>
+                    <label className="col-sm-12 col-form-label">RR Interval: {rrDisplay} ms</label>
                   </div>
                 </div>
               </div>
