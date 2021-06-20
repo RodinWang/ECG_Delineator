@@ -336,13 +336,13 @@ class ECGDiagram extends React.Component{
             <div>
                 <div className="container-fluid">
                     <div style={{float: 'left',}}>
-						<canvas ref={this.canvasRef1} id="myCanvas1" width="1250" height="256">
+						<canvas ref={this.canvasRef1} id="myCanvas1" width="1400" height="256">
 							Your browser does not support the HTML canvas tag.
 						</canvas>
 					</div>
 			
 					<div style={{float: 'top', position: 'absolute'}}>
-						<canvas ref={this.canvasRef2} id="myCanvas2" width="1250" height="256">
+						<canvas ref={this.canvasRef2} id="myCanvas2" width="1400" height="256">
 							Your browser does not support the HTML canvas tag.
 						</canvas>
 					</div>

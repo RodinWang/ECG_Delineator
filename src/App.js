@@ -206,6 +206,7 @@ class App extends React.Component {
     }
     this.ecgDelineator = new EcgDelineator();
     this.setState({
+      rrInterval: [],
       diagramUpdate: (this.state.diagramUpdate + 1) % 2,
     });
     btConnect(this.handleEcgDraw.bind(this));
