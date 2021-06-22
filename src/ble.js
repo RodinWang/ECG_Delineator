@@ -8,6 +8,7 @@ var bluetoothDevice = null;
  */
 function btConnect(func){
     navigator.bluetooth.requestDevice({
+        optionalServices: [0xFF05],
         //'713d0002-503e-4c75-ba94-3148f18d941e'
         acceptAllDevices: true//
     })
