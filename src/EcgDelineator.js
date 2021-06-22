@@ -91,6 +91,7 @@ class EcgDelineator {
         this.tBaseBuffer = new Array(windowBufferSize).fill(0);
 
         //  result
+        this.rawEcgData = 0;
         this.prevPosPeakR = 0;
         this.posPeakR = 0;
         this.detectionPeakR = false;
@@ -111,6 +112,7 @@ class EcgDelineator {
     }
 
     pushEcgData(inputEcg) {
+        this.rawEcgData = inputEcg;
         let ecg14Hz = pushDataLowPassFilter14Hz(inputEcg);
         let ecg40Hz = pushDataLowPassFilter40Hz(inputEcg);;
         this.ecg14HzBuffer[this.ecgBufferIndex] = ecg14Hz;
@@ -157,6 +159,10 @@ class EcgDelineator {
         }
     }
 
+    getRawEcgData() {
+        return this.rawEcgData;
+    }
+
     getRRInterval() {
         return (this.posPeakR - this.prevPosPeakR + this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length;
     }
@@ -166,7 +172,7 @@ class EcgDelineator {
     }
 
     getPosPeakR() {
-        return this.posPeakR + 1;
+        return this.posPeakR + 2;
     }
 
     isOnEndQRSDetected() {
@@ -308,7 +314,7 @@ class EcgDelineator {
         let diffWindow = diffNumber(qSearchWindow, ecgSearchWindow);
 
         let minValue = Math.min(...diffWindow);
-        if ( (Math.abs(minValue) > (Math.abs(diffWindow[diffWindow.length-1]) * 0.05)) &&
+        if ( (Math.abs(minValue) > (Math.abs(diffWindow[diffWindow.length-1]) * 0.025)) &&
              (Math.sign(minValue) === -1)){
             this.detectionPeakQ = true;
             this.posPeakQ = (indexBase + qSearchWindow.indexOf(Math.min(...qSearchWindow)) + this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length
@@ -353,7 +359,7 @@ class EcgDelineator {
         // find Peak S
         let diffWindow = diffNumber(sSearchWindow, ecgSearchWindow);
         let minValue = Math.min(...diffWindow);
-        if ( (Math.abs(minValue) > (Math.abs(diffWindow[0]) * 0.05)) &&
+        if ( (Math.abs(minValue) > (Math.abs(diffWindow[0]) * 0.025)) &&
              (Math.sign(minValue) === -1)){
             this.detectionPeakS = true;
             this.posPeakS = (indexBase + sSearchWindow.indexOf(Math.min(...sSearchWindow)) + this.ecg40HzBuffer.length) % this.ecg40HzBuffer.length
