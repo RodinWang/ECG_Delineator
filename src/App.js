@@ -56,6 +56,7 @@ class App extends React.Component {
   timerId = 0;
   dataIndex = 0;
   ecgDelineator = undefined;
+  rawEcgData = [];
 
   constructor(props) {
     super(props);
@@ -86,7 +87,7 @@ class App extends React.Component {
 
   handleFileSelect(evt) {
 		var files = evt.target.files; // FileList object
-
+    this.rawEcgData = [];
 		// files is a FileList of File objects. List some properties.
 		var output = [];
 		for (var i = 0, f; f = files[i]; i++) {
@@ -122,6 +123,9 @@ class App extends React.Component {
       this.dataIndex = 0;
 		}
 		else {
+      if (this.rawEcgData.length >= 10000)
+        this.rawEcgData.shift();
+      this.rawEcgData.push(inputValue);
       this.ecgDelineator.pushEcgData(inputValue);
       var ecg = this.ecgDelineator.getEcg40HzData();
 
@@ -159,7 +163,7 @@ class App extends React.Component {
           posPeakQ = this.ecgDelineator.getPosPeakQ();
       }
 
-      if (this.ecgDelineator.isPeakQDetected()) {
+      if (this.ecgDelineator.isPeakSDetected()) {
         if (rPeakEnable)
           posPeakS = this.ecgDelineator.getPosPeakS();
       }
@@ -205,6 +209,7 @@ class App extends React.Component {
       this.dataIndex = 0;
     }
     this.ecgDelineator = new EcgDelineator();
+    this.rawEcgData = [];
     this.setState({
       rrInterval: [],
       diagramUpdate: (this.state.diagramUpdate + 1) % 2,
@@ -219,7 +224,7 @@ class App extends React.Component {
   // Save ECG Data
   saveRawEcgData() {
 		var fileName = "ecg_data.csv";//匯出的檔名
-		var data = this.state.ecgSignal;
+		var data = this.rawEcgData;
 		var blob = new Blob([data], {
 			type : "application/octet-stream"
 		});
